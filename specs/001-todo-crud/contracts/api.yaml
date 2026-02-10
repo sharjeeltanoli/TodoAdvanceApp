@@ -1,0 +1,325 @@
+openapi: "3.1.0"
+info:
+  title: Hackathon Todo API
+  version: "1.0.0"
+  description: |
+    RESTful API for todo task management.
+    All endpoints require Bearer token authentication.
+    User isolation enforced — user_id extracted from verified JWT.
+
+servers:
+  - url: http://localhost:8000
+    description: Local development
+
+security:
+  - BearerAuth: []
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Better Auth session token or JWT
+
+  schemas:
+    TaskCreate:
+      type: object
+      required:
+        - title
+      properties:
+        title:
+          type: string
+          maxLength: 255
+          minLength: 1
+          description: Task title (required, non-empty)
+          example: "Buy groceries"
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+          description: Optional task description
+          example: "Milk, bread, eggs"
+
+    TaskUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          maxLength: 255
+          minLength: 1
+          description: Updated title (optional)
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+          description: Updated description (optional)
+
+    TaskResponse:
+      type: object
+      required:
+        - id
+        - title
+        - completed
+        - created_at
+        - updated_at
+      properties:
+        id:
+          type: string
+          format: uuid
+          description: Unique task identifier
+          example: "550e8400-e29b-41d4-a716-446655440000"
+        title:
+          type: string
+          example: "Buy groceries"
+        description:
+          type: string
+          nullable: true
+          example: "Milk, bread, eggs"
+        completed:
+          type: boolean
+          example: false
+        created_at:
+          type: string
+          format: date-time
+          example: "2026-02-08T10:30:00Z"
+        updated_at:
+          type: string
+          format: date-time
+          example: "2026-02-08T10:30:00Z"
+
+    TaskList:
+      type: array
+      items:
+        $ref: "#/components/schemas/TaskResponse"
+
+    ErrorResponse:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: string
+          description: Human-readable error message
+          example: "Task not found"
+
+    ValidationError:
+      type: object
+      required:
+        - detail
+      properties:
+        detail:
+          type: array
+          items:
+            type: object
+            properties:
+              loc:
+                type: array
+                items:
+                  type: string
+              msg:
+                type: string
+              type:
+                type: string
+
+paths:
+  /api/todos:
+    get:
+      operationId: listTodos
+      summary: List all tasks for the authenticated user
+      description: |
+        Returns all tasks owned by the authenticated user,
+        ordered by created_at descending (newest first).
+      tags:
+        - Tasks
+      responses:
+        "200":
+          description: List of tasks
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskList"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    post:
+      operationId: createTodo
+      summary: Create a new task
+      description: |
+        Creates a new task for the authenticated user.
+        The user_id is extracted from the Bearer token.
+        Task is created with completed=false by default.
+      tags:
+        - Tasks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskCreate"
+      responses:
+        "201":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+
+  /api/todos/{task_id}:
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Task UUID
+
+    get:
+      operationId: getTodo
+      summary: Get a specific task
+      description: |
+        Returns a single task by ID. Returns 404 if the task
+        does not exist or belongs to a different user (no
+        information leakage about other users' tasks).
+      tags:
+        - Tasks
+      responses:
+        "200":
+          description: Task details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+    put:
+      operationId: updateTodo
+      summary: Update a task
+      description: |
+        Updates task title and/or description. Only provided
+        fields are updated (partial update). Returns 404 if
+        the task does not exist or belongs to a different user.
+      tags:
+        - Tasks
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskUpdate"
+      responses:
+        "200":
+          description: Task updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ValidationError"
+
+    delete:
+      operationId: deleteTodo
+      summary: Delete a task
+      description: |
+        Permanently deletes a task. Returns 404 if the task
+        does not exist or belongs to a different user.
+        Confirmation is handled client-side before calling this endpoint.
+      tags:
+        - Tasks
+      responses:
+        "204":
+          description: Task deleted (no content)
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+
+  /api/todos/{task_id}/complete:
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+        description: Task UUID
+
+    patch:
+      operationId: toggleTodoComplete
+      summary: Toggle task completion status
+      description: |
+        Toggles the completed status of a task.
+        If completed=false, sets to true; if true, sets to false.
+        Returns the updated task.
+      tags:
+        - Tasks
+      responses:
+        "200":
+          description: Task completion toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "401":
+          description: Not authenticated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
+        "404":
+          description: Task not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ErrorResponse"
