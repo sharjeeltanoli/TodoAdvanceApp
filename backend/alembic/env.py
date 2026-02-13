@@ -7,7 +7,7 @@ from sqlalchemy.ext.asyncio import create_async_engine
 from sqlmodel import SQLModel
 
 from app.config import settings
-from app.models import Task  # noqa: F401 - import to register models
+from app.models import Task, Conversation, Message  # noqa: F401 - import to register models
 
 config = context.config
 if config.config_file_name is not None:

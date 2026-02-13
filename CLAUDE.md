@@ -212,6 +212,8 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 ## Active Technologies
 - TypeScript 5.x (frontend), Python 3.13 (backend) + Next.js 16, Better Auth, Tailwind CSS 4, FastAPI, SQLModel, Alembic, asyncpg (001-todo-crud)
 - Neon Serverless PostgreSQL (shared by auth and app) (001-todo-crud)
+- Python 3.13 (backend + MCP + agent), TypeScript 5.x (frontend) (002-ai-chatbot)
+- Neon Serverless PostgreSQL (shared — adds `conversation` + `message` tables) (002-ai-chatbot)
 
 ## Recent Changes
 - 001-todo-crud: Added TypeScript 5.x (frontend), Python 3.13 (backend) + Next.js 16, Better Auth, Tailwind CSS 4, FastAPI, SQLModel, Alembic, asyncpg

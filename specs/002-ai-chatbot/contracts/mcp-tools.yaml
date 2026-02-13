@@ -1,0 +1,169 @@
+# MCP Tools Contract: Todo MCP Server
+# Transport: streamable-http on port 8001
+# Auth: Token passthrough (Bearer token passed as tool parameter)
+
+tools:
+  - name: add_task
+    description: >
+      Create a new task for the authenticated user. Returns the created task
+      with its generated ID. The task starts as incomplete.
+    parameters:
+      - name: title
+        type: string
+        required: true
+        description: "Task title (1-255 characters)"
+        validation: "min_length=1, max_length=255, strip whitespace"
+      - name: description
+        type: string
+        required: false
+        default: ""
+        description: "Optional task description (max 2000 characters)"
+        validation: "max_length=2000"
+      - name: auth_token
+        type: string
+        required: true
+        description: "Bearer token from the user's authenticated session"
+    returns:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }
+        completed: { type: boolean, value: false }
+        created_at: { type: string, format: datetime }
+        updated_at: { type: string, format: datetime }
+    errors:
+      - "ValueError: Title must be 1-255 characters"
+      - "ValueError: Description must be at most 2000 characters"
+      - "ValueError: Invalid or expired authentication token"
+
+  - name: list_tasks
+    description: >
+      List all tasks for the authenticated user. Returns a JSON array of task
+      objects sorted by creation date (newest first). Optionally filter by
+      completion status.
+    parameters:
+      - name: auth_token
+        type: string
+        required: true
+        description: "Bearer token from the user's authenticated session"
+      - name: completed
+        type: boolean
+        required: false
+        default: null
+        description: "Filter by completion status (true=completed, false=pending, null=all)"
+    returns:
+      type: array
+      items:
+        type: object
+        properties:
+          id: { type: string, format: uuid }
+          title: { type: string }
+          description: { type: string }
+          completed: { type: boolean }
+          created_at: { type: string, format: datetime }
+          updated_at: { type: string, format: datetime }
+    errors:
+      - "ValueError: Invalid or expired authentication token"
+
+  - name: complete_task
+    description: >
+      Toggle a task's completion status. If the task is incomplete it becomes
+      complete, and vice versa. Returns the updated task object.
+    parameters:
+      - name: task_id
+        type: string
+        required: true
+        description: "UUID of the task to toggle"
+      - name: auth_token
+        type: string
+        required: true
+        description: "Bearer token from the user's authenticated session"
+    returns:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }
+        completed: { type: boolean }
+        created_at: { type: string, format: datetime }
+        updated_at: { type: string, format: datetime }
+    errors:
+      - "ValueError: Task {task_id} not found"
+      - "ValueError: Invalid or expired authentication token"
+
+  - name: update_task
+    description: >
+      Update a task's title and/or description. Only provided fields are
+      modified; omitted fields remain unchanged. Returns the updated task.
+    parameters:
+      - name: task_id
+        type: string
+        required: true
+        description: "UUID of the task to update"
+      - name: auth_token
+        type: string
+        required: true
+        description: "Bearer token from the user's authenticated session"
+      - name: title
+        type: string
+        required: false
+        description: "New title (1-255 characters)"
+        validation: "min_length=1, max_length=255"
+      - name: description
+        type: string
+        required: false
+        description: "New description (max 2000 characters)"
+        validation: "max_length=2000"
+    returns:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string }
+        completed: { type: boolean }
+        created_at: { type: string, format: datetime }
+        updated_at: { type: string, format: datetime }
+    errors:
+      - "ValueError: Task {task_id} not found"
+      - "ValueError: Title must be 1-255 characters"
+      - "ValueError: Invalid or expired authentication token"
+
+  - name: delete_task
+    description: >
+      Permanently delete a task. This action cannot be undone. Returns
+      confirmation with the deleted task ID.
+    parameters:
+      - name: task_id
+        type: string
+        required: true
+        description: "UUID of the task to delete"
+      - name: auth_token
+        type: string
+        required: true
+        description: "Bearer token from the user's authenticated session"
+    returns:
+      type: object
+      properties:
+        deleted: { type: string, format: uuid }
+    errors:
+      - "ValueError: Task {task_id} not found"
+      - "ValueError: Invalid or expired authentication token"
+
+  - name: task_summary
+    description: >
+      Get a summary of the user's tasks. Returns counts of total, completed,
+      and pending tasks — useful for quick status without fetching all details.
+    parameters:
+      - name: auth_token
+        type: string
+        required: true
+        description: "Bearer token from the user's authenticated session"
+    returns:
+      type: object
+      properties:
+        total: { type: integer }
+        completed: { type: integer }
+        pending: { type: integer }
+    errors:
+      - "ValueError: Invalid or expired authentication token"

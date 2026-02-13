@@ -6,6 +6,10 @@ class Settings(BaseSettings):
     BETTER_AUTH_URL: str = "http://localhost:3000"
     CORS_ORIGINS: str = "http://localhost:3000"
     DEBUG: bool = False
+    OPENAI_API_KEY: str = ""
+    OPENAI_BASE_URL: str = ""
+    MCP_SERVER_URL: str = "http://localhost:8001/mcp"
+    MCP_SERVER_PORT: int = 8001
 
     @property
     def cors_origins_list(self) -> list[str]:

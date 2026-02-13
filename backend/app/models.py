@@ -46,3 +46,22 @@ class TaskResponse(TaskBase):
     completed: bool
     created_at: datetime
     updated_at: datetime
+
+
+# --- Phase 3: Conversation & Message models ---
+
+
+class Conversation(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: str = Field(index=True, nullable=False)
+    title: str | None = Field(default=None, max_length=255)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+    updated_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class Message(SQLModel, table=True):
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    conversation_id: uuid.UUID = Field(foreign_key="conversation.id", index=True)
+    role: str = Field(max_length=20)  # "user" or "assistant"
+    content: str
+    created_at: datetime = Field(default_factory=datetime.utcnow)

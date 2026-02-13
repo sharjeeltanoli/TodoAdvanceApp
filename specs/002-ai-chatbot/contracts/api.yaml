@@ -1,0 +1,179 @@
+openapi: "3.1.0"
+info:
+  title: AI Chatbot API
+  version: "1.0.0"
+  description: |
+    Phase 3 AI Chatbot endpoints. The primary chat interface is handled by
+    ChatKit SDK via the /chatkit endpoint. The MCP server runs as a separate
+    process on port 8001 and is not documented here (it uses MCP protocol,
+    not REST).
+
+servers:
+  - url: http://localhost:8000
+    description: FastAPI backend (dev)
+  - url: http://localhost:8001
+    description: MCP server (dev)
+
+paths:
+  /chatkit:
+    post:
+      operationId: chatkitHandler
+      summary: ChatKit unified endpoint
+      description: |
+        Single endpoint for all ChatKit client-server communication.
+        The ChatKit Python SDK routes internally to handle thread creation,
+        message sending, thread listing, and streaming responses.
+        This is NOT called directly — the ChatKit React component manages it.
+      security:
+        - BearerAuth: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              description: ChatKit protocol payload (SDK-managed)
+      responses:
+        "200":
+          description: JSON response (thread operations)
+          content:
+            application/json:
+              schema:
+                type: object
+        "200 (streaming)":
+          description: SSE stream (agent responses)
+          content:
+            text/event-stream:
+              schema:
+                type: string
+        "401":
+          description: Invalid or missing Bearer token
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /api/conversations:
+    get:
+      operationId: listConversations
+      summary: List user's conversations
+      description: Returns conversations for the authenticated user, newest first.
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: limit
+          in: query
+          schema:
+            type: integer
+            default: 20
+            maximum: 100
+        - name: after
+          in: query
+          schema:
+            type: string
+            format: uuid
+          description: Cursor for pagination
+      responses:
+        "200":
+          description: Paginated list of conversations
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Conversation"
+                  has_more:
+                    type: boolean
+                  after:
+                    type: string
+                    nullable: true
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+  /api/conversations/{conversation_id}:
+    delete:
+      operationId: deleteConversation
+      summary: Delete a conversation and all its messages
+      security:
+        - BearerAuth: []
+      parameters:
+        - name: conversation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            format: uuid
+      responses:
+        "204":
+          description: Conversation deleted
+        "404":
+          description: Conversation not found
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+        "401":
+          $ref: "#/components/responses/Unauthorized"
+
+components:
+  securitySchemes:
+    BearerAuth:
+      type: http
+      scheme: bearer
+      description: Better Auth session token
+
+  schemas:
+    Conversation:
+      type: object
+      required: [id, title, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+          nullable: true
+          maxLength: 255
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Message:
+      type: object
+      required: [id, conversation_id, role, content, created_at]
+      properties:
+        id:
+          type: string
+          format: uuid
+        conversation_id:
+          type: string
+          format: uuid
+        role:
+          type: string
+          enum: [user, assistant]
+        content:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      required: [detail]
+      properties:
+        detail:
+          type: string
+
+  responses:
+    Unauthorized:
+      description: Invalid or missing Bearer token
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"

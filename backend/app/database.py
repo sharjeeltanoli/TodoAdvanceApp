@@ -11,6 +11,8 @@ engine = create_async_engine(
     settings.async_database_url,
     echo=settings.DEBUG,
     connect_args={"ssl": ssl_context},
+    pool_pre_ping=True,
+    pool_recycle=300,
 )
 async_session = sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
