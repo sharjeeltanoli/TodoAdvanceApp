@@ -1,0 +1,77 @@
+# Kubernetes Service Template
+# Exposes pods to the network
+# Types: ClusterIP (internal), NodePort (dev), LoadBalancer (cloud)
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ .appName }}
+  namespace: {{ .namespace | default "default" }}
+  labels:
+    app.kubernetes.io/name: {{ .appName }}
+    app.kubernetes.io/instance: {{ .releaseName | default .appName }}
+    app.kubernetes.io/component: {{ .component | default "app" }}
+  annotations:
+    # Cloud provider annotations (uncomment as needed)
+    # --- DigitalOcean ---
+    # service.beta.kubernetes.io/do-loadbalancer-size-slug: "lb-small"
+    # service.beta.kubernetes.io/do-loadbalancer-protocol: "http"
+    # service.beta.kubernetes.io/do-loadbalancer-tls-ports: "443"
+    # service.beta.kubernetes.io/do-loadbalancer-certificate-id: "<cert-id>"
+    # --- AWS ---
+    # service.beta.kubernetes.io/aws-load-balancer-type: "nlb"
+    # service.beta.kubernetes.io/aws-load-balancer-scheme: "internet-facing"
+    # --- Azure ---
+    # service.beta.kubernetes.io/azure-load-balancer-internal: "true"
+spec:
+  type: {{ .serviceType | default "ClusterIP" }}
+  # For NodePort (uncomment):
+  # nodePort: {{ .nodePort | default 30080 }}
+  # For LoadBalancer with static IP (uncomment):
+  # loadBalancerIP: {{ .loadBalancerIP }}
+  # Restrict source IPs for LoadBalancer (uncomment):
+  # loadBalancerSourceRanges:
+  #   - "10.0.0.0/8"
+  #   - "172.16.0.0/12"
+  selector:
+    app.kubernetes.io/name: {{ .appName }}
+    app.kubernetes.io/instance: {{ .releaseName | default .appName }}
+  ports:
+    - name: http
+      port: {{ .servicePort | default 80 }}
+      targetPort: {{ .targetPort | default "http" }}
+      protocol: TCP
+    # Additional ports (uncomment as needed):
+    # - name: https
+    #   port: 443
+    #   targetPort: https
+    #   protocol: TCP
+    # - name: grpc
+    #   port: 9090
+    #   targetPort: grpc
+    #   protocol: TCP
+  # Session affinity (uncomment for sticky sessions):
+  # sessionAffinity: ClientIP
+  # sessionAffinityConfig:
+  #   clientIP:
+  #     timeoutSeconds: 10800
+
+---
+# Headless Service (for StatefulSets or direct pod DNS)
+# Uncomment if needed
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: {{ .appName }}-headless
+#   namespace: {{ .namespace | default "default" }}
+#   labels:
+#     app.kubernetes.io/name: {{ .appName }}
+# spec:
+#   type: ClusterIP
+#   clusterIP: None
+#   selector:
+#     app.kubernetes.io/name: {{ .appName }}
+#   ports:
+#     - name: http
+#       port: {{ .servicePort | default 80 }}
+#       targetPort: {{ .targetPort | default "http" }}

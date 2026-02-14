@@ -1,0 +1,128 @@
+# Default values for todo-app
+# Override per environment with values-dev.yaml, values-staging.yaml, values-prod.yaml
+
+global:
+  environment: production
+  domain: app.example.com
+
+# --- Frontend (Next.js) ---
+frontend:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: ghcr.io/myorg/todo-frontend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  containerPort: 3000
+  service:
+    type: ClusterIP
+    port: 80
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 256Mi
+  config:
+    NEXT_PUBLIC_APP_NAME: "Todo App"
+  probes:
+    liveness:
+      path: /
+      initialDelaySeconds: 10
+      periodSeconds: 30
+    readiness:
+      path: /
+      initialDelaySeconds: 5
+      periodSeconds: 10
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+
+# --- Backend (FastAPI) ---
+backend:
+  enabled: true
+  replicaCount: 2
+  image:
+    repository: ghcr.io/myorg/todo-backend
+    tag: "1.0.0"
+    pullPolicy: IfNotPresent
+  containerPort: 8080
+  service:
+    type: ClusterIP
+    port: 8080
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  config:
+    LOG_LEVEL: "info"
+    LOG_FORMAT: "json"
+    CORS_ORIGINS: "https://app.example.com"
+    DB_POOL_SIZE: "20"
+  secrets:
+    DATABASE_URL: "postgresql+asyncpg://todo:secret@todo-app-postgresql:5432/tododb"
+    JWT_SECRET: "change-me-in-production"
+    BETTER_AUTH_SECRET: "change-me-in-production"
+  probes:
+    liveness:
+      path: /health
+      initialDelaySeconds: 15
+      periodSeconds: 20
+    readiness:
+      path: /health
+      initialDelaySeconds: 5
+      periodSeconds: 10
+  autoscaling:
+    enabled: false
+    minReplicas: 2
+    maxReplicas: 10
+    targetCPUUtilizationPercentage: 70
+
+# --- Ingress ---
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+  hosts:
+    - host: app.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+          port: 80
+        - path: /api
+          pathType: Prefix
+          service: backend
+          port: 8080
+  tls:
+    - secretName: todo-app-tls
+      hosts:
+        - app.example.com
+
+# --- PostgreSQL (Bitnami subchart) ---
+postgresql:
+  enabled: true
+  auth:
+    username: todo
+    password: secret
+    database: tododb
+  primary:
+    persistence:
+      enabled: true
+      size: 5Gi
+    resources:
+      requests:
+        cpu: 100m
+        memory: 256Mi
+      limits:
+        cpu: 500m
+        memory: 512Mi

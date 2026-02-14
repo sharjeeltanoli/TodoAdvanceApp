@@ -1,0 +1,116 @@
+# Kubernetes Ingress Template
+# Routes external HTTP(S) traffic to services
+# Requires an Ingress Controller (nginx, traefik, cloud-native)
+---
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: {{ .appName }}-ingress
+  namespace: {{ .namespace | default "default" }}
+  labels:
+    app.kubernetes.io/name: {{ .appName }}
+    app.kubernetes.io/instance: {{ .releaseName | default .appName }}
+  annotations:
+    # --- Nginx Ingress Controller ---
+    kubernetes.io/ingress.class: "nginx"
+    # SSL redirect
+    nginx.ingress.kubernetes.io/ssl-redirect: "{{ .sslRedirect | default "true" }}"
+    # Rate limiting
+    # nginx.ingress.kubernetes.io/limit-rps: "{{ .rateLimitRps | default "50" }}"
+    # nginx.ingress.kubernetes.io/limit-rpm: "{{ .rateLimitRpm | default "500" }}"
+    # Body size limit
+    nginx.ingress.kubernetes.io/proxy-body-size: "{{ .maxBodySize | default "10m" }}"
+    # Timeouts
+    # nginx.ingress.kubernetes.io/proxy-connect-timeout: "60"
+    # nginx.ingress.kubernetes.io/proxy-read-timeout: "60"
+    # nginx.ingress.kubernetes.io/proxy-send-timeout: "60"
+    # CORS
+    # nginx.ingress.kubernetes.io/enable-cors: "true"
+    # nginx.ingress.kubernetes.io/cors-allow-origin: "{{ .corsOrigin | default "*" }}"
+    # Websocket support
+    # nginx.ingress.kubernetes.io/proxy-http-version: "1.1"
+    # nginx.ingress.kubernetes.io/proxy-set-headers: "Upgrade=$http_upgrade,Connection=upgrade"
+
+    # --- cert-manager (automatic TLS) ---
+    cert-manager.io/cluster-issuer: "{{ .clusterIssuer | default "letsencrypt-prod" }}"
+    # For staging: cert-manager.io/cluster-issuer: "letsencrypt-staging"
+
+    # --- Traefik (alternative controller) ---
+    # kubernetes.io/ingress.class: "traefik"
+    # traefik.ingress.kubernetes.io/router.entrypoints: "websecure"
+    # traefik.ingress.kubernetes.io/router.tls: "true"
+
+    # --- Cloud-specific ---
+    # AWS ALB:
+    # kubernetes.io/ingress.class: "alb"
+    # alb.ingress.kubernetes.io/scheme: "internet-facing"
+    # alb.ingress.kubernetes.io/target-type: "ip"
+    # GCP:
+    # kubernetes.io/ingress.class: "gce"
+spec:
+  # TLS configuration
+  tls:
+    - hosts:
+        - {{ .domain }}
+        # - www.{{ .domain }}
+        # - api.{{ .domain }}
+      secretName: {{ .appName }}-tls
+  # Routing rules
+  rules:
+    # Main domain
+    - host: {{ .domain }}
+      http:
+        paths:
+          # Frontend (catch-all)
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .frontendService | default "frontend" }}
+                port:
+                  number: {{ .frontendPort | default 80 }}
+          # API backend
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ .backendService | default "backend" }}
+                port:
+                  number: {{ .backendPort | default 8080 }}
+          # WebSocket endpoint (if needed)
+          # - path: /ws
+          #   pathType: Prefix
+          #   backend:
+          #     service:
+          #       name: {{ .wsService | default "backend" }}
+          #       port:
+          #         number: {{ .wsPort | default 8080 }}
+
+    # API subdomain (alternative routing)
+    # - host: api.{{ .domain }}
+    #   http:
+    #     paths:
+    #       - path: /
+    #         pathType: Prefix
+    #         backend:
+    #           service:
+    #             name: {{ .backendService | default "backend" }}
+    #             port:
+    #               number: {{ .backendPort | default 8080 }}
+
+---
+# cert-manager ClusterIssuer (deploy once per cluster)
+# apiVersion: cert-manager.io/v1
+# kind: ClusterIssuer
+# metadata:
+#   name: letsencrypt-prod
+# spec:
+#   acme:
+#     server: https://acme-v02.api.letsencrypt.org/directory
+#     email: {{ .acmeEmail }}
+#     privateKeySecretRef:
+#       name: letsencrypt-prod-key
+#     solvers:
+#       - http01:
+#           ingress:
+#             class: nginx

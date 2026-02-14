@@ -1,0 +1,153 @@
+# Kubernetes Deployment Template
+# Usage: Replace {{ .placeholders }} with actual values
+# Supports: stateless web apps, APIs, workers
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .appName }}
+  namespace: {{ .namespace | default "default" }}
+  labels:
+    app.kubernetes.io/name: {{ .appName }}
+    app.kubernetes.io/instance: {{ .releaseName | default .appName }}
+    app.kubernetes.io/version: {{ .appVersion | default "latest" }}
+    app.kubernetes.io/component: {{ .component | default "app" }}
+    app.kubernetes.io/part-of: {{ .partOf | default .appName }}
+    app.kubernetes.io/managed-by: {{ .managedBy | default "kubectl" }}
+spec:
+  replicas: {{ .replicas | default 2 }}
+  revisionHistoryLimit: {{ .revisionHistoryLimit | default 5 }}
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: {{ .appName }}
+      app.kubernetes.io/instance: {{ .releaseName | default .appName }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: {{ .maxSurge | default "25%" }}
+      maxUnavailable: {{ .maxUnavailable | default "25%" }}
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: {{ .appName }}
+        app.kubernetes.io/instance: {{ .releaseName | default .appName }}
+        app.kubernetes.io/version: {{ .appVersion | default "latest" }}
+      annotations:
+        # Force rollout on configmap change (optional)
+        # checksum/config: {{ include "checksumConfig" . }}
+    spec:
+      serviceAccountName: {{ .serviceAccountName | default "default" }}
+      # Security: run as non-root
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: {{ .runAsUser | default 1000 }}
+        runAsGroup: {{ .runAsGroup | default 1000 }}
+        fsGroup: {{ .fsGroup | default 1000 }}
+      # Graceful shutdown
+      terminationGracePeriodSeconds: {{ .terminationGracePeriod | default 30 }}
+      containers:
+        - name: {{ .appName }}
+          image: "{{ .image.repository }}:{{ .image.tag | default "latest" }}"
+          imagePullPolicy: {{ .image.pullPolicy | default "IfNotPresent" }}
+          ports:
+            - name: http
+              containerPort: {{ .containerPort | default 8080 }}
+              protocol: TCP
+          # Container security
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: {{ .readOnlyRootFs | default true }}
+            capabilities:
+              drop: ["ALL"]
+          # Environment variables from ConfigMap
+          envFrom:
+            - configMapRef:
+                name: {{ .appName }}-config
+                optional: true
+            - secretRef:
+                name: {{ .appName }}-secret
+                optional: true
+          # Individual environment variables
+          env:
+            - name: PORT
+              value: "{{ .containerPort | default 8080 }}"
+            - name: NODE_ENV
+              value: "{{ .environment | default "production" }}"
+            # Pod metadata as env vars
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: POD_NAMESPACE
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.namespace
+          # Resource management
+          resources:
+            requests:
+              cpu: {{ .resources.requests.cpu | default "100m" }}
+              memory: {{ .resources.requests.memory | default "128Mi" }}
+            limits:
+              cpu: {{ .resources.limits.cpu | default "500m" }}
+              memory: {{ .resources.limits.memory | default "512Mi" }}
+          # Health checks
+          startupProbe:
+            httpGet:
+              path: {{ .health.startupPath | default "/healthz" }}
+              port: http
+            failureThreshold: 30
+            periodSeconds: 10
+          livenessProbe:
+            httpGet:
+              path: {{ .health.livenessPath | default "/healthz" }}
+              port: http
+            initialDelaySeconds: {{ .health.livenessDelay | default 15 }}
+            periodSeconds: {{ .health.livenessPeriod | default 20 }}
+            timeoutSeconds: {{ .health.livenessTimeout | default 5 }}
+            failureThreshold: {{ .health.livenessFailure | default 3 }}
+          readinessProbe:
+            httpGet:
+              path: {{ .health.readinessPath | default "/ready" }}
+              port: http
+            initialDelaySeconds: {{ .health.readinessDelay | default 5 }}
+            periodSeconds: {{ .health.readinessPeriod | default 10 }}
+            timeoutSeconds: {{ .health.readinessTimeout | default 5 }}
+            failureThreshold: {{ .health.readinessFailure | default 3 }}
+          # Volume mounts (optional)
+          volumeMounts:
+            - name: tmp
+              mountPath: /tmp
+            # - name: data
+            #   mountPath: /app/data
+            # - name: config-volume
+            #   mountPath: /app/config
+            #   readOnly: true
+      volumes:
+        - name: tmp
+          emptyDir: {}
+        # - name: data
+        #   persistentVolumeClaim:
+        #     claimName: {{ .appName }}-data
+        # - name: config-volume
+        #   configMap:
+        #     name: {{ .appName }}-files
+      # Image pull secrets (for private registries)
+      # imagePullSecrets:
+      #   - name: {{ .imagePullSecretName }}
+      # Pod scheduling
+      # affinity:
+      #   podAntiAffinity:
+      #     preferredDuringSchedulingIgnoredDuringExecution:
+      #       - weight: 100
+      #         podAffinityTerm:
+      #           labelSelector:
+      #             matchExpressions:
+      #               - key: app.kubernetes.io/name
+      #                 operator: In
+      #                 values: ["{{ .appName }}"]
+      #           topologyKey: kubernetes.io/hostname
+      # tolerations:
+      #   - key: "dedicated"
+      #     operator: "Equal"
+      #     value: "{{ .appName }}"
+      #     effect: "NoSchedule"

@@ -1,0 +1,171 @@
+# Helm Chart values.yaml Template
+# Override these values per environment:
+#   helm install my-app ./chart --values values-prod.yaml
+---
+
+# -- Application name override
+nameOverride: ""
+fullnameOverride: ""
+
+# -- Number of pod replicas
+replicaCount: 2
+
+# -- Container image configuration
+image:
+  repository: "{{ .imageRepository | default "ghcr.io/org/app" }}"
+  tag: "{{ .imageTag | default "latest" }}"
+  pullPolicy: IfNotPresent
+
+# -- Image pull secrets for private registries
+imagePullSecrets: []
+#   - name: regcred
+
+# -- Service account configuration
+serviceAccount:
+  create: true
+  name: ""
+  annotations: {}
+
+# -- Pod-level security context
+podSecurityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 1000
+  fsGroup: 1000
+
+# -- Container-level security context
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  capabilities:
+    drop: ["ALL"]
+
+# -- Container port
+containerPort: 8080
+
+# -- Service configuration
+service:
+  type: ClusterIP
+  port: 80
+  # nodePort: 30080        # Only for type: NodePort
+  # loadBalancerIP: ""     # Only for type: LoadBalancer
+  annotations: {}
+
+# -- Ingress configuration
+ingress:
+  enabled: false
+  className: "nginx"
+  annotations:
+    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+  hosts:
+    - host: app.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+          service: frontend
+          port: 80
+        - path: /api
+          pathType: Prefix
+          service: backend
+          port: 8080
+  tls:
+    - secretName: app-tls
+      hosts:
+        - app.example.com
+
+# -- Resource requests and limits
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+
+# -- Health check probes
+probes:
+  startup:
+    enabled: true
+    path: /healthz
+    failureThreshold: 30
+    periodSeconds: 10
+  liveness:
+    enabled: true
+    path: /healthz
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    timeoutSeconds: 5
+    failureThreshold: 3
+  readiness:
+    enabled: true
+    path: /ready
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    timeoutSeconds: 5
+    failureThreshold: 3
+
+# -- Horizontal Pod Autoscaler
+autoscaling:
+  enabled: false
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+# -- Environment variables from ConfigMap
+config:
+  APP_ENV: "production"
+  LOG_LEVEL: "info"
+  LOG_FORMAT: "json"
+  # API_BASE_URL: "http://api:8080"
+  # CORS_ORIGINS: "*"
+
+# -- Sensitive environment variables (stored as Secret)
+# WARNING: Use external secret managers in production
+secrets: {}
+  # DATABASE_URL: "postgresql://user:pass@host:5432/db"
+  # JWT_SECRET: "change-me-in-production"
+  # API_KEY: "sk-xxxx"
+
+# -- Persistent storage
+persistence:
+  enabled: false
+  storageClass: ""       # Use default if empty
+  accessMode: ReadWriteOnce
+  size: 5Gi
+  mountPath: /app/data
+
+# -- Node scheduling
+nodeSelector: {}
+tolerations: []
+affinity: {}
+
+# -- Pod disruption budget
+podDisruptionBudget:
+  enabled: false
+  minAvailable: 1
+  # maxUnavailable: 1
+
+# -- Additional volumes and mounts
+extraVolumes: []
+extraVolumeMounts: []
+
+# -- Additional environment variables
+extraEnv: []
+#   - name: EXTRA_VAR
+#     value: "extra-value"
+#   - name: SECRET_FROM_VAULT
+#     valueFrom:
+#       secretKeyRef:
+#         name: vault-secret
+#         key: password
+
+# -- Init containers
+initContainers: []
+#   - name: wait-for-db
+#     image: busybox:1.36
+#     command: ['sh', '-c', 'until nc -z postgres 5432; do sleep 2; done']
+
+# -- Sidecar containers
+extraContainers: []

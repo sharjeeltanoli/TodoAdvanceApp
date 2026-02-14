@@ -1,0 +1,174 @@
+# Helm Chart Structure Template
+# Use this as a reference for scaffolding a complete Helm chart
+#
+# To create: helm create <chart-name>
+# Then customize the generated files using these patterns.
+
+# ============================================================
+# Chart.yaml
+# ============================================================
+# apiVersion: v2
+# name: {{ .chartName }}
+# description: {{ .chartDescription | default "A Helm chart for Kubernetes" }}
+# type: application
+# version: {{ .chartVersion | default "0.1.0" }}
+# appVersion: {{ .appVersion | default "1.0.0" }}
+# maintainers:
+#   - name: {{ .maintainerName }}
+#     email: {{ .maintainerEmail }}
+# dependencies:
+#   - name: postgresql
+#     version: "~15.x"
+#     repository: "https://charts.bitnami.com/bitnami"
+#     condition: postgresql.enabled
+#   - name: redis
+#     version: "~18.x"
+#     repository: "https://charts.bitnami.com/bitnami"
+#     condition: redis.enabled
+
+# ============================================================
+# Directory structure
+# ============================================================
+# {{ .chartName }}/
+# ├── Chart.yaml                 # Chart metadata and dependencies
+# ├── Chart.lock                 # Locked dependency versions
+# ├── values.yaml                # Default values
+# ├── values-dev.yaml            # Development overrides
+# ├── values-staging.yaml        # Staging overrides
+# ├── values-prod.yaml           # Production overrides
+# ├── .helmignore                # Files to exclude from package
+# ├── templates/
+# │   ├── _helpers.tpl           # Template helper functions
+# │   ├── deployment.yaml        # Pod deployment
+# │   ├── service.yaml           # Service exposure
+# │   ├── configmap.yaml         # Non-sensitive config
+# │   ├── secret.yaml            # Sensitive config
+# │   ├── ingress.yaml           # HTTP routing
+# │   ├── hpa.yaml               # Horizontal Pod Autoscaler
+# │   ├── pdb.yaml               # Pod Disruption Budget
+# │   ├── serviceaccount.yaml    # Service Account
+# │   ├── networkpolicy.yaml     # Network Policy
+# │   ├── tests/
+# │   │   └── test-connection.yaml  # Helm test
+# │   └── NOTES.txt              # Post-install instructions
+# └── charts/                    # Subcharts (dependencies)
+
+# ============================================================
+# templates/_helpers.tpl
+# ============================================================
+# {{/*
+# Expand the name of the chart.
+# */}}
+# {{- define "app.name" -}}
+# {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
+# {{- end }}
+#
+# {{/*
+# Create a default fully qualified app name.
+# */}}
+# {{- define "app.fullname" -}}
+# {{- if .Values.fullnameOverride }}
+# {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
+# {{- else }}
+# {{- $name := default .Chart.Name .Values.nameOverride }}
+# {{- if contains $name .Release.Name }}
+# {{- .Release.Name | trunc 63 | trimSuffix "-" }}
+# {{- else }}
+# {{- printf "%s-%s" .Release.Name $name | trunc 63 | trimSuffix "-" }}
+# {{- end }}
+# {{- end }}
+# {{- end }}
+#
+# {{/*
+# Create chart name and version as used by the chart label.
+# */}}
+# {{- define "app.chart" -}}
+# {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
+# {{- end }}
+#
+# {{/*
+# Common labels
+# */}}
+# {{- define "app.labels" -}}
+# helm.sh/chart: {{ include "app.chart" . }}
+# {{ include "app.selectorLabels" . }}
+# {{- if .Chart.AppVersion }}
+# app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
+# {{- end }}
+# app.kubernetes.io/managed-by: {{ .Release.Service }}
+# {{- end }}
+#
+# {{/*
+# Selector labels
+# */}}
+# {{- define "app.selectorLabels" -}}
+# app.kubernetes.io/name: {{ include "app.name" . }}
+# app.kubernetes.io/instance: {{ .Release.Name }}
+# {{- end }}
+#
+# {{/*
+# Create the name of the service account to use
+# */}}
+# {{- define "app.serviceAccountName" -}}
+# {{- if .Values.serviceAccount.create }}
+# {{- default (include "app.fullname" .) .Values.serviceAccount.name }}
+# {{- else }}
+# {{- default "default" .Values.serviceAccount.name }}
+# {{- end }}
+# {{- end }}
+
+# ============================================================
+# templates/NOTES.txt
+# ============================================================
+# 1. Get the application URL by running these commands:
+# {{- if .Values.ingress.enabled }}
+# {{- range $host := .Values.ingress.hosts }}
+#   http{{ if $.Values.ingress.tls }}s{{ end }}://{{ $host.host }}
+# {{- end }}
+# {{- else if contains "NodePort" .Values.service.type }}
+#   export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "app.fullname" . }})
+#   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
+#   echo http://$NODE_IP:$NODE_PORT
+# {{- else if contains "LoadBalancer" .Values.service.type }}
+#   NOTE: It may take a few minutes for the LoadBalancer IP to be available.
+#   kubectl get --namespace {{ .Release.Namespace }} svc {{ include "app.fullname" . }} -w
+# {{- else }}
+#   kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "app.fullname" . }} 8080:{{ .Values.service.port }}
+#   echo "Visit http://127.0.0.1:8080"
+# {{- end }}
+
+# ============================================================
+# Helm commands reference
+# ============================================================
+# # Install
+# helm install {{ .chartName }} ./{{ .chartName }} \
+#   --namespace {{ .namespace }} \
+#   --create-namespace
+#
+# # Install with environment-specific values
+# helm install {{ .chartName }} ./{{ .chartName }} \
+#   --namespace {{ .namespace }}-prod \
+#   --values ./{{ .chartName }}/values-prod.yaml
+#
+# # Upgrade
+# helm upgrade {{ .chartName }} ./{{ .chartName }} \
+#   --namespace {{ .namespace }} \
+#   --values values-prod.yaml
+#
+# # Rollback
+# helm rollback {{ .chartName }} <revision> --namespace {{ .namespace }}
+#
+# # Test
+# helm test {{ .chartName }} --namespace {{ .namespace }}
+#
+# # Dry run (preview)
+# helm install {{ .chartName }} ./{{ .chartName }} --dry-run --debug
+#
+# # Template render (local)
+# helm template {{ .chartName }} ./{{ .chartName }} --values values-prod.yaml
+#
+# # Package for distribution
+# helm package ./{{ .chartName }}
+#
+# # Update dependencies
+# helm dependency update ./{{ .chartName }}

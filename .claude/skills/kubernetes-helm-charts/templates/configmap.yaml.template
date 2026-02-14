@@ -1,0 +1,67 @@
+# Kubernetes ConfigMap Template
+# For non-sensitive configuration data
+# WARNING: Do NOT store passwords, API keys, or tokens here. Use Secrets instead.
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .appName }}-config
+  namespace: {{ .namespace | default "default" }}
+  labels:
+    app.kubernetes.io/name: {{ .appName }}
+    app.kubernetes.io/instance: {{ .releaseName | default .appName }}
+data:
+  # Application settings
+  APP_NAME: "{{ .appName }}"
+  APP_ENV: "{{ .environment | default "production" }}"
+  LOG_LEVEL: "{{ .logLevel | default "info" }}"
+  LOG_FORMAT: "{{ .logFormat | default "json" }}"
+
+  # Server config
+  PORT: "{{ .containerPort | default 8080 }}"
+  HOST: "{{ .host | default "0.0.0.0" }}"
+
+  # API / Backend URLs (non-sensitive)
+  API_BASE_URL: "{{ .apiBaseUrl | default "http://api:8080" }}"
+  # FRONTEND_URL: "{{ .frontendUrl }}"
+  # CORS_ORIGINS: "{{ .corsOrigins | default "*" }}"
+
+  # Feature flags
+  # ENABLE_SWAGGER: "{{ .enableSwagger | default "false" }}"
+  # ENABLE_METRICS: "{{ .enableMetrics | default "true" }}"
+  # ENABLE_DEBUG: "{{ .enableDebug | default "false" }}"
+
+  # Cache / Performance
+  # CACHE_TTL: "{{ .cacheTtl | default "300" }}"
+  # MAX_CONNECTIONS: "{{ .maxConnections | default "100" }}"
+
+---
+# ConfigMap for mounting config files (optional)
+# Useful for nginx.conf, application.yaml, etc.
+# apiVersion: v1
+# kind: ConfigMap
+# metadata:
+#   name: {{ .appName }}-files
+#   namespace: {{ .namespace | default "default" }}
+#   labels:
+#     app.kubernetes.io/name: {{ .appName }}
+# data:
+#   nginx.conf: |
+#     server {
+#       listen 80;
+#       server_name _;
+#       location / {
+#         root /usr/share/nginx/html;
+#         try_files $uri $uri/ /index.html;
+#       }
+#       location /api/ {
+#         proxy_pass http://backend:8080/;
+#       }
+#     }
+#   config.yaml: |
+#     server:
+#       port: 8080
+#       graceful_shutdown: 30s
+#     logging:
+#       level: info
+#       format: json

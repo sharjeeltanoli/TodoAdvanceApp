@@ -1,0 +1,171 @@
+# Minikube Local Development Setup
+# Complete namespace, resource quotas, and dev-friendly services
+#
+# Prerequisites:
+#   minikube start --cpus=4 --memory=8192 --driver=docker
+#   minikube addons enable ingress
+#   minikube addons enable metrics-server
+#   minikube addons enable dashboard
+#
+# Deploy:
+#   kubectl apply -f minikube-setup-example.yaml
+#   kubectl apply -f frontend-deployment-example.yaml
+#   kubectl apply -f backend-deployment-example.yaml
+#
+# Access:
+#   minikube service frontend --namespace todo-app --url
+#   # Or use port-forward:
+#   kubectl port-forward svc/frontend 3000:80 -n todo-app
+#   kubectl port-forward svc/backend 8080:8080 -n todo-app
+
+---
+# Namespace for the application
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: todo-app
+  labels:
+    app.kubernetes.io/part-of: todo-app
+    environment: development
+
+---
+# Resource quota to prevent runaway resource usage in dev
+apiVersion: v1
+kind: ResourceQuota
+metadata:
+  name: dev-quota
+  namespace: todo-app
+spec:
+  hard:
+    requests.cpu: "2"
+    requests.memory: 2Gi
+    limits.cpu: "4"
+    limits.memory: 4Gi
+    pods: "20"
+    services: "10"
+    persistentvolumeclaims: "5"
+
+---
+# Limit range to set defaults for pods without resource specs
+apiVersion: v1
+kind: LimitRange
+metadata:
+  name: dev-limits
+  namespace: todo-app
+spec:
+  limits:
+    - type: Container
+      default:
+        cpu: 200m
+        memory: 256Mi
+      defaultRequest:
+        cpu: 50m
+        memory: 64Mi
+      max:
+        cpu: "1"
+        memory: 1Gi
+      min:
+        cpu: 10m
+        memory: 16Mi
+
+---
+# ConfigMap for dev-specific overrides
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: dev-config
+  namespace: todo-app
+  labels:
+    app.kubernetes.io/part-of: todo-app
+    environment: development
+data:
+  APP_ENV: "development"
+  LOG_LEVEL: "debug"
+  LOG_FORMAT: "text"
+  ENABLE_SWAGGER: "true"
+  ENABLE_DEBUG: "true"
+
+---
+# Dev-friendly frontend service with NodePort
+# Access via: minikube service frontend-dev --namespace todo-app
+apiVersion: v1
+kind: Service
+metadata:
+  name: frontend-dev
+  namespace: todo-app
+  labels:
+    app.kubernetes.io/name: frontend
+    app.kubernetes.io/part-of: todo-app
+    environment: development
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: frontend
+  ports:
+    - name: http
+      port: 80
+      targetPort: http
+      nodePort: 30080
+      protocol: TCP
+
+---
+# Dev-friendly backend service with NodePort
+# Access via: minikube service backend-dev --namespace todo-app
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend-dev
+  namespace: todo-app
+  labels:
+    app.kubernetes.io/name: backend
+    app.kubernetes.io/part-of: todo-app
+    environment: development
+spec:
+  type: NodePort
+  selector:
+    app.kubernetes.io/name: backend
+  ports:
+    - name: http
+      port: 8080
+      targetPort: http
+      nodePort: 30088
+      protocol: TCP
+
+---
+# Ingress for local development
+# Add to /etc/hosts: $(minikube ip) todo.local
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: todo-app-ingress
+  namespace: todo-app
+  annotations:
+    nginx.ingress.kubernetes.io/ssl-redirect: "false"
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+spec:
+  ingressClassName: nginx
+  rules:
+    - host: todo.local
+      http:
+        paths:
+          - path: /
+            pathType: Prefix
+            backend:
+              service:
+                name: frontend
+                port:
+                  number: 80
+          - path: /api
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
+          - path: /docs
+            pathType: Prefix
+            backend:
+              service:
+                name: backend
+                port:
+                  number: 8080
