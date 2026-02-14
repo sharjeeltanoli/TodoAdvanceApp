@@ -1,0 +1,63 @@
+# =============================================================================
+# General Python Multi-Stage Production Dockerfile
+# =============================================================================
+# Usage: Replace {{PLACEHOLDERS}} with project values
+#   {{PYTHON_VERSION}}  - Python version (e.g., 3.13, 3.12)
+#   {{ENTRYPOINT}}      - Application entrypoint (e.g., python main.py)
+#   {{PORT}}            - Application port (if applicable)
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Stage 1: Build dependencies
+# ---------------------------------------------------------------------------
+FROM python:{{PYTHON_VERSION}}-slim AS builder
+
+WORKDIR /app
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends gcc libpq-dev && \
+    rm -rf /var/lib/apt/lists/*
+
+# -- uv installer --
+COPY --from=ghcr.io/astral-sh/uv:latest /uv /usr/local/bin/uv
+ENV UV_COMPILE_BYTECODE=1 \
+    UV_LINK_MODE=copy
+
+COPY pyproject.toml uv.lock* ./
+RUN uv sync --frozen --no-dev --no-install-project
+
+COPY . .
+RUN uv sync --frozen --no-dev
+
+# -- pip fallback (uncomment and remove uv section) --
+# COPY requirements.txt ./
+# RUN python -m venv /app/.venv && \
+#     /app/.venv/bin/pip install --no-cache-dir -r requirements.txt
+# COPY . .
+
+# ---------------------------------------------------------------------------
+# Stage 2: Production runner
+# ---------------------------------------------------------------------------
+FROM python:{{PYTHON_VERSION}}-slim AS runner
+
+WORKDIR /app
+
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends libpq5 && \
+    rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd --system --gid 1001 appgroup && \
+    useradd --system --uid 1001 --gid appgroup --create-home appuser
+
+COPY --from=builder --chown=appuser:appgroup /app /app
+
+ENV PATH="/app/.venv/bin:$PATH" \
+    PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1
+
+USER appuser
+
+EXPOSE {{PORT}}
+
+CMD [{{ENTRYPOINT}}]

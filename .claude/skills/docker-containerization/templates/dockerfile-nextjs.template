@@ -1,0 +1,89 @@
+# =============================================================================
+# Next.js Multi-Stage Production Dockerfile
+# =============================================================================
+# Usage: Replace {{PLACEHOLDERS}} with project values
+#   {{NODE_VERSION}}     - Node.js version (e.g., 22, 20, 18)
+#   {{PACKAGE_MANAGER}}  - npm | pnpm | yarn | bun
+#   {{PORT}}             - Application port (default: 3000)
+#
+# Requirements:
+#   - next.config.ts must include: output: "standalone"
+#   - Package lockfile must be present
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Stage 1: Install dependencies
+# ---------------------------------------------------------------------------
+FROM node:{{NODE_VERSION}}-alpine AS deps
+
+RUN apk add --no-cache libc6-compat
+
+WORKDIR /app
+
+# Copy lockfiles first for layer caching
+# -- npm --
+COPY package.json package-lock.json* ./
+RUN npm ci --omit=dev
+
+# -- pnpm (uncomment and remove npm section) --
+# RUN corepack enable pnpm
+# COPY package.json pnpm-lock.yaml* ./
+# RUN pnpm install --frozen-lockfile --prod
+
+# -- yarn (uncomment and remove npm section) --
+# COPY package.json yarn.lock* ./
+# RUN yarn install --frozen-lockfile --production
+
+# -- bun (uncomment and remove npm section) --
+# FROM oven/bun:1-alpine AS deps
+# WORKDIR /app
+# COPY package.json bun.lockb* ./
+# RUN bun install --frozen-lockfile --production
+
+# ---------------------------------------------------------------------------
+# Stage 2: Build the application
+# ---------------------------------------------------------------------------
+FROM node:{{NODE_VERSION}}-alpine AS builder
+
+WORKDIR /app
+
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+
+# Build arguments (do NOT use for secrets)
+ARG NEXT_PUBLIC_API_URL
+ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV NODE_ENV=production
+
+RUN npm run build
+
+# ---------------------------------------------------------------------------
+# Stage 3: Production runner
+# ---------------------------------------------------------------------------
+FROM node:{{NODE_VERSION}}-alpine AS runner
+
+WORKDIR /app
+
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV PORT={{PORT}}
+ENV HOSTNAME="0.0.0.0"
+
+# Create non-root user
+RUN addgroup --system --gid 1001 nodejs && \
+    adduser --system --uid 1001 nextjs
+
+# Copy standalone output
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=nextjs:nodejs /app/.next/standalone ./
+COPY --from=builder --chown=nextjs:nodejs /app/.next/static ./.next/static
+
+USER nextjs
+
+EXPOSE {{PORT}}
+
+HEALTHCHECK --interval=30s --timeout=5s --start-period=15s --retries=3 \
+  CMD wget --no-verbose --tries=1 --spider http://localhost:{{PORT}}/ || exit 1
+
+CMD ["node", "server.js"]
