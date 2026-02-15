@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "todo-app.fullname" . }}-config
+  labels:
+    {{- include "todo-app.labels" . | nindent 4 }}
+data:
+  LOG_LEVEL: {{ .Values.config.logLevel | quote }}
+  DEBUG: {{ .Values.config.debug | quote }}
+  BETTER_AUTH_URL: {{ .Values.config.betterAuthUrl | quote }}
+  CORS_ORIGINS: {{ .Values.config.corsOrigins | quote }}
+  MCP_SERVER_URL: {{ .Values.config.mcpServerUrl | quote }}
+  MCP_SERVER_PORT: {{ .Values.config.mcpServerPort | quote }}
+  BACKEND_URL: {{ .Values.config.backendUrl | quote }}
+  OPENAI_BASE_URL: {{ .Values.config.openaiBaseUrl | quote }}

@@ -1,0 +1,21 @@
+🎉 Todo App deployed successfully!
+
+1. Check pod status:
+   kubectl get pods -n {{ .Release.Namespace }}
+
+2. Access the frontend:
+   minikube service {{ include "todo-app.frontend.fullname" . }} -n {{ .Release.Namespace }} --url
+
+3. View logs:
+   kubectl logs -l app.kubernetes.io/component=frontend -n {{ .Release.Namespace }}
+   kubectl logs -l app.kubernetes.io/component=backend -n {{ .Release.Namespace }}
+   kubectl logs -l app.kubernetes.io/component=mcp -n {{ .Release.Namespace }}
+
+4. Upgrade:
+   helm upgrade {{ .Release.Name }} ./chart -n {{ .Release.Namespace }} --reuse-values
+
+5. Rollback:
+   helm rollback {{ .Release.Name }} 1 -n {{ .Release.Namespace }}
+
+6. Uninstall:
+   helm uninstall {{ .Release.Name }} -n {{ .Release.Namespace }}

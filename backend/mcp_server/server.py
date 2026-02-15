@@ -403,7 +403,21 @@ async def delete_task(
 # ASGI app — `uvicorn mcp_server.server:app --host 0.0.0.0 --port 8001`
 # ===================================================================
 
-app = mcp.streamable_http_app()
+from starlette.applications import Starlette
+from starlette.responses import JSONResponse
+from starlette.routing import Mount, Route
+
+
+async def health(request):
+    return JSONResponse({"status": "ok"})
+
+
+app = Starlette(
+    routes=[
+        Route("/health", health),
+        Mount("/mcp", app=mcp.streamable_http_app()),
+    ],
+)
 
 # ===================================================================
 # Direct entry point — `python -m mcp_server`

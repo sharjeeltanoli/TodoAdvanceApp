@@ -1,0 +1,9 @@
+.git
+.gitignore
+*.swp
+*.swo
+.DS_Store
+*.md
+tests/
+.env*
+*.tmp

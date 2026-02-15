@@ -1,0 +1,41 @@
+# Dependencies
+node_modules/
+.venv/
+venv/
+__pycache__/
+*.pyc
+*.pyo
+
+# Build artifacts
+.next/
+dist/
+build/
+*.egg-info/
+.pytest_cache/
+.mypy_cache/
+
+# Environment and secrets
+.env
+.env.*
+!.env.example
+
+# Version control
+.git/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+
+# Project metadata (not needed in containers)
+specs/
+history/
+.specify/
+.claude/
+chart/
+scripts/
+*.md
+LICENSE

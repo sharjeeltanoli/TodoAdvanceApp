@@ -214,6 +214,8 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 - Neon Serverless PostgreSQL (shared by auth and app) (001-todo-crud)
 - Python 3.13 (backend + MCP + agent), TypeScript 5.x (frontend) (002-ai-chatbot)
 - Neon Serverless PostgreSQL (shared — adds `conversation` + `message` tables) (002-ai-chatbot)
+- TypeScript 5.x (frontend), Python 3.13 (backend + MCP) + Next.js 16.1.6, FastAPI 0.115.8, FastMCP (MCP SDK v1.26.0) (003-kubernetes-local)
+- External Neon Serverless PostgreSQL (shared by all services, no in-cluster DB) (003-kubernetes-local)
 
 ## Recent Changes
 - 001-todo-crud: Added TypeScript 5.x (frontend), Python 3.13 (backend) + Next.js 16, Better Auth, Tailwind CSS 4, FastAPI, SQLModel, Alembic, asyncpg

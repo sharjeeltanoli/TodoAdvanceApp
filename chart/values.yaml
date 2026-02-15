@@ -1,0 +1,84 @@
+# Default values for todo-app Helm chart (Minikube local dev)
+
+global:
+  imagePullPolicy: IfNotPresent
+
+# --- Frontend (Next.js) ---
+frontend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: todo-frontend
+    tag: "latest"
+  service:
+    type: NodePort
+    port: 3000
+    nodePort: 30080
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# --- Backend (FastAPI) ---
+backend:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: todo-backend
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 8000
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+# --- MCP Server (FastMCP) ---
+mcp:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: todo-mcp
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 8001
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# --- Configuration (non-sensitive → ConfigMap) ---
+config:
+  logLevel: "info"
+  debug: "false"
+  betterAuthUrl: "http://todo-app-frontend:3000"
+  corsOrigins: "http://localhost:30080"
+  mcpServerUrl: "http://todo-app-mcp:8001/mcp"
+  mcpServerPort: "8001"
+  backendUrl: "http://todo-app-backend:8000"
+  openaiBaseUrl: "https://openrouter.ai/api/v1"
+
+# --- Secrets (sensitive → K8s Secret) ---
+# MUST be set via --set or a local values override file
+secrets:
+  databaseUrl: ""
+  betterAuthSecret: ""
+  openaiApiKey: ""
+  frontendDatabaseUrl: ""
+
+# --- Ingress (optional, disabled by default) ---
+ingress:
+  enabled: false
+  className: nginx
+  host: todo.local
