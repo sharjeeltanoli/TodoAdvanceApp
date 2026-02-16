@@ -1,0 +1,371 @@
+openapi: "3.1.0"
+info:
+  title: Enhanced Task Management API
+  version: "2.0.0"
+  description: >
+    Extended task API with priorities, tags, due dates, search, filter, sort,
+    recurring tasks, and reminders. All endpoints require Bearer token auth.
+
+servers:
+  - url: http://localhost:8000/api
+    description: Local development
+
+security:
+  - bearerAuth: []
+
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+
+  schemas:
+    Priority:
+      type: string
+      enum: [high, medium, low]
+      default: medium
+
+    RecurrencePattern:
+      type: object
+      nullable: true
+      properties:
+        frequency:
+          type: string
+          enum: [daily, weekly, monthly]
+        interval:
+          type: integer
+          minimum: 1
+          default: 1
+        next_due:
+          type: string
+          format: date-time
+      required: [frequency, interval, next_due]
+
+    TaskCreate:
+      type: object
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+        priority:
+          $ref: "#/components/schemas/Priority"
+        tags:
+          type: array
+          items:
+            type: string
+            maxLength: 50
+          maxItems: 10
+          default: []
+        due_date:
+          type: string
+          format: date-time
+          nullable: true
+        recurrence_pattern:
+          $ref: "#/components/schemas/RecurrencePattern"
+        reminder_minutes:
+          type: integer
+          enum: [15, 60, 1440]
+          nullable: true
+
+    TaskUpdate:
+      type: object
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 255
+        description:
+          type: string
+          maxLength: 2000
+          nullable: true
+        priority:
+          $ref: "#/components/schemas/Priority"
+        tags:
+          type: array
+          items:
+            type: string
+            maxLength: 50
+          maxItems: 10
+        due_date:
+          type: string
+          format: date-time
+          nullable: true
+        recurrence_pattern:
+          $ref: "#/components/schemas/RecurrencePattern"
+        reminder_minutes:
+          type: integer
+          enum: [15, 60, 1440]
+          nullable: true
+
+    TaskResponse:
+      type: object
+      properties:
+        id:
+          type: string
+          format: uuid
+        title:
+          type: string
+        description:
+          type: string
+          nullable: true
+        completed:
+          type: boolean
+        priority:
+          $ref: "#/components/schemas/Priority"
+        tags:
+          type: array
+          items:
+            type: string
+        due_date:
+          type: string
+          format: date-time
+          nullable: true
+        recurrence_pattern:
+          $ref: "#/components/schemas/RecurrencePattern"
+        reminder_minutes:
+          type: integer
+          nullable: true
+        snoozed_until:
+          type: string
+          format: date-time
+          nullable: true
+          description: Set by snooze endpoint; reminders suppressed until this time
+        reminder_notified_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Tracks when notification was last shown; prevents duplicates
+        parent_task_id:
+          type: string
+          format: uuid
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+
+    Error:
+      type: object
+      properties:
+        detail:
+          type: string
+
+paths:
+  /todos:
+    get:
+      summary: List tasks with search, filter, and sort
+      operationId: listTodos
+      parameters:
+        - name: search
+          in: query
+          schema:
+            type: string
+          description: Case-insensitive keyword search on title and description
+        - name: status
+          in: query
+          schema:
+            type: string
+            enum: [pending, completed]
+          description: Filter by completion status
+        - name: priority
+          in: query
+          schema:
+            $ref: "#/components/schemas/Priority"
+          description: Filter by priority level
+        - name: tag
+          in: query
+          schema:
+            type: string
+          description: Filter by tag (exact match, lowercase)
+        - name: sort_by
+          in: query
+          schema:
+            type: string
+            enum: [created_at, due_date, priority]
+            default: created_at
+          description: Field to sort by
+        - name: sort_dir
+          in: query
+          schema:
+            type: string
+            enum: [asc, desc]
+            default: desc
+          description: Sort direction
+      responses:
+        "200":
+          description: List of tasks matching criteria
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaskResponse"
+        "401":
+          description: Unauthorized
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+    post:
+      summary: Create a new task
+      operationId: createTodo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskCreate"
+      responses:
+        "201":
+          description: Task created
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "422":
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+
+  /todos/tags:
+    get:
+      summary: Get distinct tags for autocomplete
+      operationId: listTags
+      description: Returns all unique tags used by the authenticated user across all tasks
+      responses:
+        "200":
+          description: List of unique tag strings
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  type: string
+
+  /todos/reminders:
+    get:
+      summary: Get tasks with upcoming reminders
+      operationId: listReminders
+      description: >
+        Returns tasks where (due_date - reminder_minutes) <= NOW(), not completed,
+        and (reminder_notified_at IS NULL or snoozed_until <= NOW()).
+        Used by frontend polling for browser notifications.
+      responses:
+        "200":
+          description: Tasks with due reminders
+          content:
+            application/json:
+              schema:
+                type: array
+                items:
+                  $ref: "#/components/schemas/TaskResponse"
+
+  /todos/{task_id}:
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+
+    get:
+      summary: Get a single task
+      operationId: getTodo
+      responses:
+        "200":
+          description: Task details
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "404":
+          description: Task not found
+
+    put:
+      summary: Update a task
+      operationId: updateTodo
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TaskUpdate"
+      responses:
+        "200":
+          description: Task updated
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "404":
+          description: Task not found
+        "422":
+          description: Validation error
+
+    delete:
+      summary: Delete a task
+      operationId: deleteTodo
+      responses:
+        "204":
+          description: Task deleted
+        "404":
+          description: Task not found
+
+  /todos/{task_id}/complete:
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    patch:
+      summary: Toggle task completion
+      operationId: toggleComplete
+      responses:
+        "200":
+          description: Task completion toggled
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "404":
+          description: Task not found
+
+  /todos/{task_id}/snooze:
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          format: uuid
+    post:
+      summary: Snooze a task reminder by 15 minutes
+      operationId: snoozeReminder
+      description: >
+        Sets snoozed_until = NOW() + 15 min and clears reminder_notified_at
+        so the reminder re-fires after the snooze period
+      responses:
+        "200":
+          description: Reminder snoozed
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TaskResponse"
+        "404":
+          description: Task not found
+        "400":
+          description: Task has no reminder set
