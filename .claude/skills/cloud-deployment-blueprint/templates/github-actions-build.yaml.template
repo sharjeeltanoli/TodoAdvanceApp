@@ -1,0 +1,184 @@
+# GitHub Actions - Build and Push Docker Images to GHCR
+# Place at: .github/workflows/build.yaml
+#
+# Variables:
+#   {{GHCR_REGISTRY}}  - ghcr.io
+#   {{IMAGE_PREFIX}}    - ghcr.io/OWNER/REPO (e.g., ghcr.io/myorg/hackathon-todo)
+#   {{SERVICES}}        - List of services to build (frontend, backend, mcp-server)
+
+name: Build and Push Images
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  REGISTRY: {{GHCR_REGISTRY}}
+  IMAGE_PREFIX: {{IMAGE_PREFIX}}
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  changes:
+    name: Detect Changes
+    runs-on: ubuntu-latest
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+      mcp-server: ${{ steps.filter.outputs.mcp-server }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            frontend:
+              - 'frontend/**'
+              - 'deploy/docker/frontend/**'
+            backend:
+              - 'backend/**'
+              - 'deploy/docker/backend/**'
+            mcp-server:
+              - 'mcp_server/**'
+              - 'deploy/docker/mcp-server/**'
+
+  build-frontend:
+    name: Build Frontend
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/frontend
+          tags: |
+            type=sha,prefix=sha-
+            type=ref,event=pr,prefix=pr-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/frontend/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+          build-args: |
+            NEXT_PUBLIC_API_URL=/api
+
+  build-backend:
+    name: Build Backend
+    needs: changes
+    if: needs.changes.outputs.backend == 'true' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/backend
+          tags: |
+            type=sha,prefix=sha-
+            type=ref,event=pr,prefix=pr-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/backend/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  build-mcp-server:
+    name: Build MCP Server
+    needs: changes
+    if: needs.changes.outputs.mcp-server == 'true' || github.ref == 'refs/heads/main'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE_PREFIX }}/mcp-server
+          tags: |
+            type=sha,prefix=sha-
+            type=ref,event=pr,prefix=pr-
+            type=raw,value=latest,enable={{is_default_branch}}
+
+      - name: Build and push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: deploy/docker/mcp-server/Dockerfile
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  summary:
+    name: Build Summary
+    needs: [build-frontend, build-backend, build-mcp-server]
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check results
+        run: |
+          echo "Frontend: ${{ needs.build-frontend.result }}"
+          echo "Backend: ${{ needs.build-backend.result }}"
+          echo "MCP Server: ${{ needs.build-mcp-server.result }}"
+          if [[ "${{ needs.build-frontend.result }}" == "failure" ]] || \
+             [[ "${{ needs.build-backend.result }}" == "failure" ]] || \
+             [[ "${{ needs.build-mcp-server.result }}" == "failure" ]]; then
+            echo "One or more builds failed"
+            exit 1
+          fi

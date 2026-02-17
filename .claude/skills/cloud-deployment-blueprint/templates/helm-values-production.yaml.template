@@ -1,0 +1,191 @@
+# Helm Values - Production Environment
+# Usage: helm upgrade --install RELEASE CHART -f values-production.yaml -n production
+#
+# Variables:
+#   {{IMAGE_PREFIX}}     - Image prefix (e.g., ghcr.io/myorg/hackathon-todo)
+#   {{DOMAIN}}           - Production domain (e.g., app.example.com)
+#   {{DATABASE_URL}}     - Neon PostgreSQL connection string
+#   {{AUTH_SECRET}}      - Better Auth secret
+#   {{ANTHROPIC_API_KEY}} - Anthropic API key (for MCP/chatbot)
+
+global:
+  environment: production
+  domain: {{DOMAIN}}
+
+# --- Frontend ---
+frontend:
+  replicaCount: 2
+  image:
+    repository: {{IMAGE_PREFIX}}/frontend
+    tag: "latest"
+    pullPolicy: Always
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 3000
+  env:
+    - name: NEXT_PUBLIC_API_URL
+      value: "/api"
+    - name: NODE_ENV
+      value: "production"
+  livenessProbe:
+    httpGet:
+      path: /
+      port: 3000
+    initialDelaySeconds: 15
+    periodSeconds: 20
+  readinessProbe:
+    httpGet:
+      path: /
+      port: 3000
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+
+# --- Backend ---
+backend:
+  replicaCount: 2
+  image:
+    repository: {{IMAGE_PREFIX}}/backend
+    tag: "latest"
+    pullPolicy: Always
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 8000
+  env:
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: app-secrets
+          key: database-url
+    - name: AUTH_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: app-secrets
+          key: auth-secret
+    - name: ENVIRONMENT
+      value: "production"
+    - name: LOG_LEVEL
+      value: "info"
+  livenessProbe:
+    httpGet:
+      path: /api/health
+      port: 8000
+    initialDelaySeconds: 10
+    periodSeconds: 15
+  readinessProbe:
+    httpGet:
+      path: /api/health
+      port: 8000
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+
+# --- MCP Server ---
+mcpServer:
+  replicaCount: 1
+  image:
+    repository: {{IMAGE_PREFIX}}/mcp-server
+    tag: "latest"
+    pullPolicy: Always
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 8001
+  env:
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: app-secrets
+          key: database-url
+    - name: ANTHROPIC_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: app-secrets
+          key: anthropic-api-key
+    - name: ENVIRONMENT
+      value: "production"
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8001
+    initialDelaySeconds: 10
+    periodSeconds: 20
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 8001
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  autoscaling:
+    enabled: false
+    minReplicas: 1
+    maxReplicas: 3
+    targetCPUUtilizationPercentage: 80
+
+# --- Ingress ---
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+    nginx.ingress.kubernetes.io/rate-limit-window: "1m"
+  hosts:
+    - host: {{DOMAIN}}
+      paths:
+        - path: /api
+          pathType: Prefix
+          service: backend
+          port: 8000
+        - path: /mcp
+          pathType: Prefix
+          service: mcp-server
+          port: 8001
+        - path: /
+          pathType: Prefix
+          service: frontend
+          port: 3000
+  tls:
+    - secretName: production-tls
+      hosts:
+        - {{DOMAIN}}
+
+# --- Secrets (create separately) ---
+# kubectl create secret generic app-secrets -n production \
+#   --from-literal=database-url="{{DATABASE_URL}}" \
+#   --from-literal=auth-secret="{{AUTH_SECRET}}" \
+#   --from-literal=anthropic-api-key="{{ANTHROPIC_API_KEY}}"
+
+# --- Pod Disruption Budget ---
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1

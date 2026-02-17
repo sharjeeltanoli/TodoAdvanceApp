@@ -1,0 +1,97 @@
+# Horizontal Pod Autoscaler (HPA) Configuration
+# Requires: metrics-server installed (default on DOKS)
+#
+# Variables:
+#   {{NAMESPACE}}       - Kubernetes namespace (e.g., production)
+#   {{DEPLOYMENT_NAME}} - Target deployment name (e.g., backend)
+#   {{MIN_REPLICAS}}    - Minimum pod count (e.g., 2)
+#   {{MAX_REPLICAS}}    - Maximum pod count (e.g., 10)
+#   {{CPU_THRESHOLD}}   - CPU target percentage (e.g., 70)
+#   {{MEMORY_THRESHOLD}} - Memory target percentage (e.g., 80)
+
+---
+# Backend HPA - Scale on CPU and Memory
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+  namespace: {{NAMESPACE}}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: {{MIN_REPLICAS}}
+  maxReplicas: {{MAX_REPLICAS}}
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: {{CPU_THRESHOLD}}
+    - type: Resource
+      resource:
+        name: memory
+        target:
+          type: Utilization
+          averageUtilization: {{MEMORY_THRESHOLD}}
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120
+
+---
+# Frontend HPA - Scale on CPU
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: frontend-hpa
+  namespace: {{NAMESPACE}}
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: frontend
+  minReplicas: 2
+  maxReplicas: 6
+  metrics:
+    - type: Resource
+      resource:
+        name: cpu
+        target:
+          type: Utilization
+          averageUtilization: 70
+  behavior:
+    scaleUp:
+      stabilizationWindowSeconds: 60
+      policies:
+        - type: Pods
+          value: 2
+          periodSeconds: 60
+    scaleDown:
+      stabilizationWindowSeconds: 300
+      policies:
+        - type: Pods
+          value: 1
+          periodSeconds: 120
+
+---
+# Verification commands:
+#   kubectl get hpa -n {{NAMESPACE}}
+#   kubectl describe hpa backend-hpa -n {{NAMESPACE}}
+#   kubectl top pods -n {{NAMESPACE}}
+#
+# Load testing to trigger scaling:
+#   kubectl run load-test --rm -i --restart=Never \
+#     --image=busybox:latest -n {{NAMESPACE}} -- \
+#     sh -c "while true; do wget -q -O- http://backend:8000/api/health; done"

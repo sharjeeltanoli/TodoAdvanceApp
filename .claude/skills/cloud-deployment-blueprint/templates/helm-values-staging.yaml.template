@@ -1,0 +1,176 @@
+# Helm Values - Staging Environment
+# Usage: helm upgrade --install RELEASE CHART -f values-staging.yaml -n staging
+#
+# Variables:
+#   {{IMAGE_PREFIX}}     - Image prefix (e.g., ghcr.io/myorg/hackathon-todo)
+#   {{STAGING_DOMAIN}}   - Staging domain (e.g., staging.app.example.com)
+#   {{DATABASE_URL}}     - Neon PostgreSQL connection string (staging branch)
+
+global:
+  environment: staging
+  domain: {{STAGING_DOMAIN}}
+
+# --- Frontend ---
+frontend:
+  replicaCount: 1
+  image:
+    repository: {{IMAGE_PREFIX}}/frontend
+    tag: "latest"
+    pullPolicy: Always
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  service:
+    type: ClusterIP
+    port: 3000
+  env:
+    - name: NEXT_PUBLIC_API_URL
+      value: "/api"
+    - name: NODE_ENV
+      value: "staging"
+  livenessProbe:
+    httpGet:
+      path: /
+      port: 3000
+    initialDelaySeconds: 10
+    periodSeconds: 30
+  readinessProbe:
+    httpGet:
+      path: /
+      port: 3000
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  autoscaling:
+    enabled: false
+
+# --- Backend ---
+backend:
+  replicaCount: 1
+  image:
+    repository: {{IMAGE_PREFIX}}/backend
+    tag: "latest"
+    pullPolicy: Always
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  service:
+    type: ClusterIP
+    port: 8000
+  env:
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: app-secrets
+          key: database-url
+    - name: AUTH_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: app-secrets
+          key: auth-secret
+    - name: ENVIRONMENT
+      value: "staging"
+    - name: LOG_LEVEL
+      value: "debug"
+  livenessProbe:
+    httpGet:
+      path: /api/health
+      port: 8000
+    initialDelaySeconds: 10
+    periodSeconds: 20
+  readinessProbe:
+    httpGet:
+      path: /api/health
+      port: 8000
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  autoscaling:
+    enabled: false
+
+# --- MCP Server ---
+mcpServer:
+  replicaCount: 1
+  image:
+    repository: {{IMAGE_PREFIX}}/mcp-server
+    tag: "latest"
+    pullPolicy: Always
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+  service:
+    type: ClusterIP
+    port: 8001
+  env:
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: app-secrets
+          key: database-url
+    - name: ANTHROPIC_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: app-secrets
+          key: anthropic-api-key
+    - name: ENVIRONMENT
+      value: "staging"
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8001
+    initialDelaySeconds: 10
+    periodSeconds: 30
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 8001
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  autoscaling:
+    enabled: false
+
+# --- Ingress ---
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-staging
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+  hosts:
+    - host: {{STAGING_DOMAIN}}
+      paths:
+        - path: /api
+          pathType: Prefix
+          service: backend
+          port: 8000
+        - path: /mcp
+          pathType: Prefix
+          service: mcp-server
+          port: 8001
+        - path: /
+          pathType: Prefix
+          service: frontend
+          port: 3000
+  tls:
+    - secretName: staging-tls
+      hosts:
+        - {{STAGING_DOMAIN}}
+
+# --- Secrets (create separately) ---
+# kubectl create secret generic app-secrets -n staging \
+#   --from-literal=database-url="{{DATABASE_URL}}" \
+#   --from-literal=auth-secret="staging-secret-change-me" \
+#   --from-literal=anthropic-api-key="{{ANTHROPIC_API_KEY}}"
+
+podDisruptionBudget:
+  enabled: false

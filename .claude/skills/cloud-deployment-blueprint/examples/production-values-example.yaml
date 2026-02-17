@@ -1,0 +1,222 @@
+# Production Helm Values - hackathon-todo Real-World Example
+#
+# This is a concrete example with realistic values for deploying
+# the hackathon-todo app to DigitalOcean DOKS.
+#
+# Usage:
+#   helm upgrade --install hackathon-todo ./deploy/helm/hackathon-todo \
+#     -f production-values-example.yaml \
+#     --namespace production --create-namespace
+
+global:
+  environment: production
+  domain: todo.example.com
+
+# --- Frontend (Next.js) ---
+frontend:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/myorg/hackathon-todo/frontend
+    tag: "sha-abc1234"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 3000
+  env:
+    - name: NEXT_PUBLIC_API_URL
+      value: "/api"
+    - name: NODE_ENV
+      value: "production"
+  livenessProbe:
+    httpGet:
+      path: /
+      port: 3000
+    initialDelaySeconds: 15
+    periodSeconds: 20
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /
+      port: 3000
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    failureThreshold: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 6
+    targetCPUUtilizationPercentage: 70
+
+# --- Backend (FastAPI) ---
+backend:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/myorg/hackathon-todo/backend
+    tag: "sha-abc1234"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 8000
+  env:
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: app-secrets
+          key: database-url
+    - name: AUTH_SECRET
+      valueFrom:
+        secretKeyRef:
+          name: app-secrets
+          key: auth-secret
+    - name: ENVIRONMENT
+      value: "production"
+    - name: LOG_LEVEL
+      value: "info"
+    - name: WORKERS
+      value: "4"
+  livenessProbe:
+    httpGet:
+      path: /api/health
+      port: 8000
+    initialDelaySeconds: 10
+    periodSeconds: 15
+    failureThreshold: 3
+  readinessProbe:
+    httpGet:
+      path: /api/health
+      port: 8000
+    initialDelaySeconds: 5
+    periodSeconds: 10
+    failureThreshold: 3
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 0
+  autoscaling:
+    enabled: true
+    minReplicas: 2
+    maxReplicas: 8
+    targetCPUUtilizationPercentage: 70
+
+# --- MCP Server ---
+mcpServer:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/myorg/hackathon-todo/mcp-server
+    tag: "sha-abc1234"
+    pullPolicy: IfNotPresent
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  service:
+    type: ClusterIP
+    port: 8001
+  env:
+    - name: DATABASE_URL
+      valueFrom:
+        secretKeyRef:
+          name: app-secrets
+          key: database-url
+    - name: ANTHROPIC_API_KEY
+      valueFrom:
+        secretKeyRef:
+          name: app-secrets
+          key: anthropic-api-key
+    - name: ENVIRONMENT
+      value: "production"
+  livenessProbe:
+    httpGet:
+      path: /health
+      port: 8001
+    initialDelaySeconds: 10
+    periodSeconds: 20
+  readinessProbe:
+    httpGet:
+      path: /health
+      port: 8001
+    initialDelaySeconds: 5
+    periodSeconds: 10
+  autoscaling:
+    enabled: false
+
+# --- Ingress with TLS ---
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    nginx.ingress.kubernetes.io/ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+    nginx.ingress.kubernetes.io/limit-rps: "50"
+    nginx.ingress.kubernetes.io/configuration-snippet: |
+      more_set_headers "X-Frame-Options: DENY";
+      more_set_headers "X-Content-Type-Options: nosniff";
+  hosts:
+    - host: todo.example.com
+      paths:
+        - path: /api
+          pathType: Prefix
+          service: backend
+          port: 8000
+        - path: /mcp
+          pathType: Prefix
+          service: mcp-server
+          port: 8001
+        - path: /auth
+          pathType: Prefix
+          service: backend
+          port: 8000
+        - path: /
+          pathType: Prefix
+          service: frontend
+          port: 3000
+  tls:
+    - secretName: production-tls
+      hosts:
+        - todo.example.com
+
+# --- Pod Disruption Budget ---
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
+
+# --- Image Pull Secrets (for private GHCR repos) ---
+imagePullSecrets:
+  - name: ghcr-secret
+
+# --- Secrets setup (run before first deploy) ---
+# kubectl create secret generic app-secrets -n production \
+#   --from-literal=database-url="postgresql://neondb_owner:xxx@ep-xxx.us-east-2.aws.neon.tech/neondb?sslmode=require" \
+#   --from-literal=auth-secret="$(openssl rand -hex 32)" \
+#   --from-literal=anthropic-api-key="sk-ant-api03-xxx"
+#
+# kubectl create secret docker-registry ghcr-secret -n production \
+#   --docker-server=ghcr.io \
+#   --docker-username=GITHUB_USER \
+#   --docker-password=ghp_xxx \
+#   --docker-email=you@example.com

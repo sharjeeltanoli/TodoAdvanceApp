@@ -1,0 +1,71 @@
+# DigitalOcean Kubernetes (DOKS) Cluster Configuration
+# Usage: doctl kubernetes cluster create --config this-file.yaml
+# Docs: https://docs.digitalocean.com/reference/doctl/reference/kubernetes/cluster/create/
+#
+# Variables:
+#   {{CLUSTER_NAME}}     - Cluster name (e.g., hackathon-todo)
+#   {{REGION}}           - DO region (e.g., nyc1, sfo3, ams3, sgp1)
+#   {{K8S_VERSION}}      - Kubernetes version (e.g., 1.31.1-do.0 or "latest")
+#   {{NODE_SIZE}}        - Droplet size (e.g., s-2vcpu-4gb)
+#   {{NODE_COUNT}}       - Initial node count
+#   {{MIN_NODES}}        - Auto-scale minimum
+#   {{MAX_NODES}}        - Auto-scale maximum
+#   {{TAG}}              - Resource tag for billing/org
+
+---
+# Step 1: Create the cluster
+# doctl kubernetes cluster create {{CLUSTER_NAME}} \
+#   --region {{REGION}} \
+#   --version {{K8S_VERSION}} \
+#   --node-pool "name=default;size={{NODE_SIZE}};count={{NODE_COUNT}};auto-scale=true;min-nodes={{MIN_NODES}};max-nodes={{MAX_NODES}};tag={{TAG}}" \
+#   --tag {{TAG}} \
+#   --ha=false \
+#   --surge-upgrade
+
+# Step 2: Save kubeconfig
+# doctl kubernetes cluster kubeconfig save {{CLUSTER_NAME}}
+
+# Step 3: Verify
+# kubectl get nodes
+# kubectl cluster-info
+
+# --- Equivalent declarative config for Terraform/Pulumi ---
+
+apiVersion: digitalocean.com/v1
+kind: KubernetesCluster
+metadata:
+  name: {{CLUSTER_NAME}}
+spec:
+  region: {{REGION}}
+  version: {{K8S_VERSION}}
+  ha: false
+  surgeUpgrade: true
+  autoUpgrade: true
+  maintenancePolicy:
+    startTime: "04:00"
+    day: "sunday"
+  tags:
+    - {{TAG}}
+    - managed-by:skill
+  nodePools:
+    - name: default
+      size: {{NODE_SIZE}}
+      count: {{NODE_COUNT}}
+      autoScale: true
+      minNodes: {{MIN_NODES}}
+      maxNodes: {{MAX_NODES}}
+      tags:
+        - {{TAG}}
+      labels:
+        env: production
+        managed-by: skill
+
+---
+# Post-setup checklist:
+# [ ] Cluster created and nodes Ready
+# [ ] kubectl context set correctly
+# [ ] Container registry connected (doctl registry kubernetes-manifest | kubectl apply -f -)
+# [ ] Ingress controller installed (nginx)
+# [ ] cert-manager installed
+# [ ] Namespaces created (staging, production)
+# [ ] GitHub secrets configured (KUBE_CONFIG_DATA, DIGITALOCEAN_ACCESS_TOKEN)

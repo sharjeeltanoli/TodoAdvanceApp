@@ -1,0 +1,164 @@
+# DigitalOcean DOKS - Complete Setup Example for hackathon-todo
+#
+# This example shows the full sequence to provision a DOKS cluster,
+# install dependencies, and prepare for application deployment.
+#
+# Estimated time: ~10 minutes
+# Estimated cost: ~$48/month (2x s-2vcpu-4gb nodes + LB)
+
+# =============================================================
+# STEP 1: Create the DOKS Cluster
+# =============================================================
+
+# Create cluster with auto-scaling node pool
+# doctl kubernetes cluster create hackathon-todo \
+#   --region nyc1 \
+#   --version latest \
+#   --node-pool "name=default;size=s-2vcpu-4gb;count=2;auto-scale=true;min-nodes=2;max-nodes=5;tag=hackathon" \
+#   --tag hackathon \
+#   --surge-upgrade
+
+# Save kubeconfig locally
+# doctl kubernetes cluster kubeconfig save hackathon-todo
+
+# Verify nodes are ready
+# kubectl get nodes -o wide
+
+# =============================================================
+# STEP 2: Create Namespaces
+# =============================================================
+
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: staging
+  labels:
+    env: staging
+---
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: production
+  labels:
+    env: production
+
+# kubectl apply -f this-file.yaml
+
+# =============================================================
+# STEP 3: Install NGINX Ingress Controller
+# =============================================================
+
+# helm repo add ingress-nginx https://kubernetes.github.io/ingress-nginx
+# helm repo update
+# helm install ingress-nginx ingress-nginx/ingress-nginx \
+#   --namespace ingress-nginx \
+#   --create-namespace \
+#   --set controller.publishService.enabled=true
+
+# Wait for external IP (DigitalOcean Load Balancer)
+# kubectl get svc -n ingress-nginx --watch
+# Note: Copy the EXTERNAL-IP and set your DNS A record
+
+# =============================================================
+# STEP 4: Install cert-manager
+# =============================================================
+
+# helm repo add jetstack https://charts.jetstack.io
+# helm repo update
+# helm install cert-manager jetstack/cert-manager \
+#   --namespace cert-manager \
+#   --create-namespace \
+#   --set installCRDs=true
+
+# Verify cert-manager pods are running
+# kubectl get pods -n cert-manager
+
+# Apply ClusterIssuers
+# kubectl apply -f cert-manager-issuer.yaml
+
+# =============================================================
+# STEP 5: Create Secrets
+# =============================================================
+
+# Staging secrets
+# kubectl create secret generic app-secrets -n staging \
+#   --from-literal=database-url="postgresql://user:pass@host/dbname_staging?sslmode=require" \
+#   --from-literal=auth-secret="staging-auth-secret-$(openssl rand -hex 16)" \
+#   --from-literal=anthropic-api-key="sk-ant-xxx"
+
+# Production secrets
+# kubectl create secret generic app-secrets -n production \
+#   --from-literal=database-url="postgresql://user:pass@host/dbname?sslmode=require" \
+#   --from-literal=auth-secret="prod-auth-secret-$(openssl rand -hex 16)" \
+#   --from-literal=anthropic-api-key="sk-ant-xxx"
+
+# =============================================================
+# STEP 6: Configure GHCR Image Pull (for private repos)
+# =============================================================
+
+# Create a GitHub PAT with read:packages scope
+# kubectl create secret docker-registry ghcr-secret \
+#   --docker-server=ghcr.io \
+#   --docker-username=GITHUB_USERNAME \
+#   --docker-password=GITHUB_PAT \
+#   --docker-email=you@example.com \
+#   -n staging
+
+# kubectl create secret docker-registry ghcr-secret \
+#   --docker-server=ghcr.io \
+#   --docker-username=GITHUB_USERNAME \
+#   --docker-password=GITHUB_PAT \
+#   --docker-email=you@example.com \
+#   -n production
+
+# =============================================================
+# STEP 7: Deploy Application
+# =============================================================
+
+# Deploy to staging first
+# helm upgrade --install hackathon-todo ./deploy/helm/hackathon-todo \
+#   -f ./deploy/helm/hackathon-todo/values-staging.yaml \
+#   --namespace staging \
+#   --set frontend.image.tag=latest \
+#   --set backend.image.tag=latest \
+#   --set mcpServer.image.tag=latest
+
+# Verify staging
+# kubectl get pods -n staging
+# kubectl get ingress -n staging
+
+# Deploy to production
+# helm upgrade --install hackathon-todo ./deploy/helm/hackathon-todo \
+#   -f ./deploy/helm/hackathon-todo/values-production.yaml \
+#   --namespace production \
+#   --set frontend.image.tag=latest \
+#   --set backend.image.tag=latest \
+#   --set mcpServer.image.tag=latest
+
+# =============================================================
+# STEP 8: Verify Everything
+# =============================================================
+
+# Check all pods
+# kubectl get pods --all-namespaces
+
+# Check ingress and external IP
+# kubectl get ingress -n production
+
+# Check certificates
+# kubectl get certificate -n production
+
+# Test endpoints
+# curl https://app.example.com/api/health
+# curl https://app.example.com/
+
+# =============================================================
+# CLEANUP (when done with hackathon)
+# =============================================================
+
+# Delete cluster (removes all resources)
+# doctl kubernetes cluster delete hackathon-todo --force
+
+# Delete load balancers (if not auto-deleted)
+# doctl compute load-balancer list
+# doctl compute load-balancer delete <lb-id> --force

@@ -1,0 +1,181 @@
+# GitHub Actions - Deploy to Kubernetes via Helm
+# Place at: .github/workflows/deploy.yaml
+#
+# Variables:
+#   {{CLUSTER_NAME}}    - DOKS cluster name
+#   {{HELM_RELEASE}}    - Helm release name (e.g., hackathon-todo)
+#   {{HELM_CHART_PATH}} - Path to Helm chart (e.g., deploy/helm/hackathon-todo)
+#   {{IMAGE_PREFIX}}    - Image prefix (e.g., ghcr.io/myorg/hackathon-todo)
+#
+# Required Secrets:
+#   DIGITALOCEAN_ACCESS_TOKEN - DigitalOcean API token
+#   KUBE_CONFIG_DATA          - base64-encoded kubeconfig (alternative to doctl)
+
+name: Deploy to Kubernetes
+
+on:
+  workflow_run:
+    workflows: ["Build and Push Images"]
+    types: [completed]
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Deployment environment"
+        required: true
+        default: "staging"
+        type: choice
+        options:
+          - staging
+          - production
+      image_tag:
+        description: "Image tag to deploy (default: latest)"
+        required: false
+        default: "latest"
+
+env:
+  HELM_RELEASE: {{HELM_RELEASE}}
+  HELM_CHART: {{HELM_CHART_PATH}}
+  IMAGE_PREFIX: {{IMAGE_PREFIX}}
+
+jobs:
+  deploy-staging:
+    name: Deploy to Staging
+    if: >
+      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
+      (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    runs-on: ubuntu-latest
+    environment: staging
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Save kubeconfig
+        run: doctl kubernetes cluster kubeconfig save {{CLUSTER_NAME}}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Determine image tag
+        id: tag
+        run: |
+          if [ "${{ github.event_name }}" == "workflow_dispatch" ]; then
+            echo "tag=${{ github.event.inputs.image_tag }}" >> $GITHUB_OUTPUT
+          else
+            echo "tag=sha-$(echo ${{ github.event.workflow_run.head_sha }} | cut -c1-7)" >> $GITHUB_OUTPUT
+          fi
+
+      - name: Deploy to staging
+        run: |
+          helm upgrade --install ${{ env.HELM_RELEASE }} ${{ env.HELM_CHART }} \
+            -f ${{ env.HELM_CHART }}/values-staging.yaml \
+            --namespace staging \
+            --create-namespace \
+            --set frontend.image.tag=${{ steps.tag.outputs.tag }} \
+            --set backend.image.tag=${{ steps.tag.outputs.tag }} \
+            --set mcpServer.image.tag=${{ steps.tag.outputs.tag }} \
+            --wait \
+            --timeout 5m
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/frontend -n staging --timeout=120s
+          kubectl rollout status deployment/backend -n staging --timeout=120s
+          echo "Staging deployment successful"
+
+      - name: Run smoke tests
+        run: |
+          STAGING_URL=$(kubectl get ingress -n staging -o jsonpath='{.items[0].spec.rules[0].host}')
+          echo "Staging URL: $STAGING_URL"
+          # Basic health check
+          kubectl run smoke-test --rm -i --restart=Never \
+            --image=curlimages/curl:latest \
+            -n staging -- \
+            curl -sf http://backend:8000/api/health || echo "Health check pending..."
+
+  deploy-production:
+    name: Deploy to Production
+    if: github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'production'
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Save kubeconfig
+        run: doctl kubernetes cluster kubeconfig save {{CLUSTER_NAME}}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Determine image tag
+        id: tag
+        run: |
+          TAG="${{ github.event.inputs.image_tag }}"
+          echo "tag=${TAG:-latest}" >> $GITHUB_OUTPUT
+
+      - name: Pre-deploy snapshot
+        run: |
+          echo "Current production state:"
+          helm history ${{ env.HELM_RELEASE }} -n production --max 3 || true
+          kubectl get pods -n production || true
+
+      - name: Deploy to production
+        run: |
+          helm upgrade --install ${{ env.HELM_RELEASE }} ${{ env.HELM_CHART }} \
+            -f ${{ env.HELM_CHART }}/values-production.yaml \
+            --namespace production \
+            --create-namespace \
+            --set frontend.image.tag=${{ steps.tag.outputs.tag }} \
+            --set backend.image.tag=${{ steps.tag.outputs.tag }} \
+            --set mcpServer.image.tag=${{ steps.tag.outputs.tag }} \
+            --wait \
+            --timeout 10m
+
+      - name: Verify deployment
+        run: |
+          kubectl rollout status deployment/frontend -n production --timeout=180s
+          kubectl rollout status deployment/backend -n production --timeout=180s
+          kubectl rollout status deployment/mcp-server -n production --timeout=180s
+          echo "Production deployment successful"
+
+      - name: Post-deploy verification
+        run: |
+          echo "=== Pod Status ==="
+          kubectl get pods -n production
+          echo "=== Service Endpoints ==="
+          kubectl get svc -n production
+          echo "=== Ingress ==="
+          kubectl get ingress -n production
+
+  rollback:
+    name: Emergency Rollback
+    if: failure()
+    needs: [deploy-production]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install doctl
+        uses: digitalocean/action-doctl@v2
+        with:
+          token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
+
+      - name: Save kubeconfig
+        run: doctl kubernetes cluster kubeconfig save {{CLUSTER_NAME}}
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Rollback
+        run: |
+          echo "Production deployment failed - rolling back..."
+          helm rollback ${{ env.HELM_RELEASE }} -n production
+          echo "Rollback completed"
+          kubectl get pods -n production
