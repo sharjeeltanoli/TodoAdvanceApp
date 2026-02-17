@@ -1,0 +1,265 @@
+// Next.js Structured Logging Template with pino
+// Provides JSON logging for server components, API routes, and middleware.
+//
+// Install: npm install pino pino-pretty
+//
+// Variables:
+//   {{APP_NAME}}    - Application name (e.g., hackathon-todo-frontend)
+//   {{LOG_LEVEL}}   - Default log level (e.g., info)
+//   {{ENVIRONMENT}} - Environment name (e.g., production)
+
+// === File: frontend/lib/logger.ts ===
+
+import pino from "pino";
+
+const isProduction = process.env.NODE_ENV === "production";
+
+/**
+ * Base logger — JSON in production, pretty in development.
+ * Import and use in server-side code only.
+ */
+export const logger = pino({
+  name: "{{APP_NAME}}",
+  level: process.env.LOG_LEVEL || "{{LOG_LEVEL}}",
+
+  // Add base fields to every log entry
+  base: {
+    app: "{{APP_NAME}}",
+    env: process.env.NODE_ENV || "{{ENVIRONMENT}}",
+    // pid and hostname are added by default
+  },
+
+  // ISO timestamps for Loki compatibility
+  timestamp: pino.stdTimeFunctions.isoTime,
+
+  // Production: JSON (machine readable)
+  // Development: pretty print (human readable)
+  transport: isProduction
+    ? undefined
+    : {
+        target: "pino-pretty",
+        options: {
+          colorize: true,
+          translateTime: "HH:MM:ss",
+          ignore: "pid,hostname",
+        },
+      },
+
+  // Redact sensitive fields
+  redact: {
+    paths: [
+      "req.headers.authorization",
+      "req.headers.cookie",
+      "password",
+      "token",
+      "secret",
+      "*.password",
+      "*.token",
+    ],
+    censor: "[REDACTED]",
+  },
+
+  // Serializers for common objects
+  serializers: {
+    err: pino.stdSerializers.err,
+    req: (req: any) => ({
+      method: req.method,
+      url: req.url,
+      path: req.path || req.url?.split("?")[0],
+      query: req.query,
+      userAgent: req.headers?.["user-agent"],
+      // Never log full headers (may contain auth tokens)
+    }),
+    res: (res: any) => ({
+      statusCode: res.statusCode,
+    }),
+  },
+});
+
+/**
+ * Create a child logger with request context.
+ * Use in API routes and server actions.
+ */
+export function createRequestLogger(context: {
+  requestId?: string;
+  userId?: string;
+  path?: string;
+  method?: string;
+}) {
+  return logger.child({
+    requestId: context.requestId || crypto.randomUUID(),
+    userId: context.userId || "anonymous",
+    path: context.path,
+    method: context.method,
+  });
+}
+
+// === File: frontend/lib/logger-client.ts ===
+
+/**
+ * Client-side logger — minimal, errors only.
+ * Sends critical errors to a server endpoint for aggregation.
+ */
+
+type LogLevel = "error" | "warn";
+
+interface ClientLog {
+  level: LogLevel;
+  message: string;
+  error?: string;
+  context?: Record<string, unknown>;
+  timestamp: string;
+  url: string;
+  userAgent: string;
+}
+
+class ClientLogger {
+  private queue: ClientLog[] = [];
+  private flushTimeout: ReturnType<typeof setTimeout> | null = null;
+
+  error(message: string, error?: Error, context?: Record<string, unknown>) {
+    this.log("error", message, error, context);
+  }
+
+  warn(message: string, error?: Error, context?: Record<string, unknown>) {
+    this.log("warn", message, error, context);
+  }
+
+  private log(
+    level: LogLevel,
+    message: string,
+    error?: Error,
+    context?: Record<string, unknown>,
+  ) {
+    const entry: ClientLog = {
+      level,
+      message,
+      error: error?.stack || error?.message,
+      context,
+      timestamp: new Date().toISOString(),
+      url: typeof window !== "undefined" ? window.location.href : "",
+      userAgent:
+        typeof navigator !== "undefined" ? navigator.userAgent : "unknown",
+    };
+
+    // Also log to console in development
+    if (process.env.NODE_ENV !== "production") {
+      console[level](message, error, context);
+    }
+
+    this.queue.push(entry);
+    this.scheduleFlush();
+  }
+
+  private scheduleFlush() {
+    if (this.flushTimeout) return;
+    this.flushTimeout = setTimeout(() => this.flush(), 5000);
+  }
+
+  private async flush() {
+    this.flushTimeout = null;
+    if (this.queue.length === 0) return;
+
+    const batch = [...this.queue];
+    this.queue = [];
+
+    try {
+      await fetch("/api/logs", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ logs: batch }),
+      });
+    } catch {
+      // Re-queue on failure (with limit to prevent memory leak)
+      if (this.queue.length < 100) {
+        this.queue.unshift(...batch);
+      }
+    }
+  }
+}
+
+export const clientLogger = new ClientLogger();
+
+// === File: frontend/app/api/logs/route.ts ===
+
+// Server endpoint to receive client-side logs
+//
+// import { NextRequest, NextResponse } from "next/server";
+// import { logger } from "@/lib/logger";
+//
+// const clientLog = logger.child({ source: "client" });
+//
+// export async function POST(request: NextRequest) {
+//   try {
+//     const { logs } = await request.json();
+//
+//     for (const log of logs) {
+//       const level = log.level === "error" ? "error" : "warn";
+//       clientLog[level](
+//         {
+//           url: log.url,
+//           error: log.error,
+//           ...log.context,
+//           clientTimestamp: log.timestamp,
+//         },
+//         `[CLIENT] ${log.message}`
+//       );
+//     }
+//
+//     return NextResponse.json({ received: logs.length });
+//   } catch {
+//     return NextResponse.json({ error: "Invalid payload" }, { status: 400 });
+//   }
+// }
+
+// === Usage in API routes ===
+
+// import { NextRequest, NextResponse } from "next/server";
+// import { createRequestLogger } from "@/lib/logger";
+//
+// export async function GET(request: NextRequest) {
+//   const log = createRequestLogger({
+//     path: request.nextUrl.pathname,
+//     method: "GET",
+//     requestId: request.headers.get("x-request-id") || undefined,
+//   });
+//
+//   log.info("Fetching tasks");
+//
+//   try {
+//     const response = await fetch(`${API_URL}/api/tasks`);
+//     log.info({ status: response.status }, "Tasks fetched");
+//     return NextResponse.json(await response.json());
+//   } catch (error) {
+//     log.error({ err: error }, "Failed to fetch tasks");
+//     return NextResponse.json({ error: "Internal error" }, { status: 500 });
+//   }
+// }
+
+// === Usage in server components ===
+
+// import { logger } from "@/lib/logger";
+//
+// export default async function TasksPage() {
+//   logger.info("Rendering tasks page");
+//   const tasks = await getTasks();
+//   logger.info({ count: tasks.length }, "Tasks loaded for render");
+//   return <TaskList tasks={tasks} />;
+// }
+
+// === Usage in client components (errors only) ===
+
+// "use client";
+// import { clientLogger } from "@/lib/logger-client";
+//
+// function TaskForm() {
+//   const handleSubmit = async (data: FormData) => {
+//     try {
+//       await createTask(data);
+//     } catch (error) {
+//       clientLogger.error("Task creation failed", error as Error, {
+//         form: Object.fromEntries(data),
+//       });
+//     }
+//   };
+// }

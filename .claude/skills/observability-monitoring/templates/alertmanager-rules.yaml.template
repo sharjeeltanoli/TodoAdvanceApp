@@ -1,0 +1,244 @@
+# Prometheus Alert Rules for hackathon-todo
+# Apply with: kubectl apply -f alertmanager-rules.yaml
+# Requires: kube-prometheus-stack with PrometheusRule CRD
+#
+# Variables:
+#   {{NAMESPACE}}       - Target namespace (e.g., production)
+#   {{SLACK_WEBHOOK}}   - Slack webhook URL for notifications
+#   {{PAGERDUTY_KEY}}   - PagerDuty integration key (optional)
+
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: app-alert-rules
+  namespace: {{NAMESPACE}}
+  labels:
+    release: monitoring  # Must match Prometheus operator release
+    app: hackathon-todo
+spec:
+  groups:
+    # =============================================
+    # Availability Alerts
+    # =============================================
+    - name: availability
+      rules:
+        - alert: PodCrashLooping
+          expr: |
+            increase(kube_pod_container_status_restarts_total{namespace="{{NAMESPACE}}"}[15m]) > 3
+          for: 5m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "Pod {{ $labels.pod }} is crash-looping"
+            description: "Pod {{ $labels.pod }} has restarted {{ $value }} times in the last 15 minutes."
+            runbook: "Check pod logs: kubectl logs {{ $labels.pod }} -n {{NAMESPACE}} --previous"
+
+        - alert: PodNotReady
+          expr: |
+            kube_pod_status_ready{namespace="{{NAMESPACE}}", condition="false"} == 1
+          for: 5m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "Pod {{ $labels.pod }} is not ready"
+            description: "Pod {{ $labels.pod }} has been not-ready for more than 5 minutes."
+            runbook: "Check events: kubectl describe pod {{ $labels.pod }} -n {{NAMESPACE}}"
+
+        - alert: DeploymentReplicasMismatch
+          expr: |
+            kube_deployment_spec_replicas{namespace="{{NAMESPACE}}"}
+            != kube_deployment_status_ready_replicas{namespace="{{NAMESPACE}}"}
+          for: 10m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Deployment {{ $labels.deployment }} has replica mismatch"
+            description: "Expected {{ $value }} replicas but not all are ready for 10+ minutes."
+
+    # =============================================
+    # Performance Alerts
+    # =============================================
+    - name: performance
+      rules:
+        - alert: HighP95Latency
+          expr: |
+            histogram_quantile(0.95,
+              sum(rate(api_request_duration_seconds_bucket{namespace="{{NAMESPACE}}"}[5m]))
+              by (le)
+            ) > 2
+          for: 5m
+          labels:
+            severity: warning
+            team: backend
+          annotations:
+            summary: "API p95 latency is above 2 seconds"
+            description: "The 95th percentile response time is {{ $value | humanizeDuration }}."
+
+        - alert: CriticalP99Latency
+          expr: |
+            histogram_quantile(0.99,
+              sum(rate(api_request_duration_seconds_bucket{namespace="{{NAMESPACE}}"}[5m]))
+              by (le)
+            ) > 5
+          for: 5m
+          labels:
+            severity: critical
+            team: backend
+          annotations:
+            summary: "API p99 latency is above 5 seconds"
+            description: "The 99th percentile response time is {{ $value | humanizeDuration }}."
+
+    # =============================================
+    # Error Rate Alerts
+    # =============================================
+    - name: errors
+      rules:
+        - alert: HighErrorRate
+          expr: |
+            100 * (
+              sum(rate(api_request_duration_seconds_count{namespace="{{NAMESPACE}}", status=~"5.."}[5m]))
+              / sum(rate(api_request_duration_seconds_count{namespace="{{NAMESPACE}}"}[5m]))
+            ) > 5
+          for: 5m
+          labels:
+            severity: warning
+            team: backend
+          annotations:
+            summary: "API 5xx error rate is above 5%"
+            description: "Current 5xx error rate is {{ $value | humanize }}%."
+
+        - alert: CriticalErrorRate
+          expr: |
+            100 * (
+              sum(rate(api_request_duration_seconds_count{namespace="{{NAMESPACE}}", status=~"5.."}[5m]))
+              / sum(rate(api_request_duration_seconds_count{namespace="{{NAMESPACE}}"}[5m]))
+            ) > 15
+          for: 2m
+          labels:
+            severity: critical
+            team: backend
+          annotations:
+            summary: "API 5xx error rate is critically high (>15%)"
+            description: "Current 5xx error rate is {{ $value | humanize }}%. Immediate investigation required."
+
+    # =============================================
+    # Resource Alerts
+    # =============================================
+    - name: resources
+      rules:
+        - alert: HighCPUUsage
+          expr: |
+            100 * sum(rate(container_cpu_usage_seconds_total{namespace="{{NAMESPACE}}", container!=""}[5m]))
+            by (pod)
+            / sum(kube_pod_container_resource_limits{namespace="{{NAMESPACE}}", resource="cpu"})
+            by (pod) > 85
+          for: 10m
+          labels:
+            severity: warning
+            team: platform
+          annotations:
+            summary: "Pod {{ $labels.pod }} CPU usage is above 85%"
+            description: "Pod {{ $labels.pod }} is using {{ $value | humanize }}% of its CPU limit."
+
+        - alert: HighMemoryUsage
+          expr: |
+            100 * sum(container_memory_working_set_bytes{namespace="{{NAMESPACE}}", container!=""})
+            by (pod)
+            / sum(kube_pod_container_resource_limits{namespace="{{NAMESPACE}}", resource="memory"})
+            by (pod) > 90
+          for: 10m
+          labels:
+            severity: critical
+            team: platform
+          annotations:
+            summary: "Pod {{ $labels.pod }} memory usage is above 90%"
+            description: "Pod {{ $labels.pod }} is using {{ $value | humanize }}% of its memory limit. OOMKill risk."
+
+    # =============================================
+    # Database Alerts
+    # =============================================
+    - name: database
+      rules:
+        - alert: DatabaseConnectionErrors
+          expr: |
+            increase(db_connection_errors_total{namespace="{{NAMESPACE}}"}[5m]) > 0
+          for: 1m
+          labels:
+            severity: critical
+            team: backend
+          annotations:
+            summary: "Database connection errors detected"
+            description: "{{ $value }} database connection errors in the last 5 minutes."
+
+    # =============================================
+    # Application-Specific Alerts
+    # =============================================
+    - name: application
+      rules:
+        - alert: TaskCreationFailures
+          expr: |
+            increase(task_operation_errors_total{namespace="{{NAMESPACE}}", operation="create"}[5m]) > 10
+          for: 5m
+          labels:
+            severity: warning
+            team: backend
+          annotations:
+            summary: "High task creation failure rate"
+            description: "{{ $value }} task creation failures in the last 5 minutes."
+
+        - alert: AuthenticationFailureSpike
+          expr: |
+            increase(auth_failures_total{namespace="{{NAMESPACE}}"}[5m]) > 50
+          for: 5m
+          labels:
+            severity: warning
+            team: security
+          annotations:
+            summary: "Spike in authentication failures"
+            description: "{{ $value }} auth failures in 5 minutes. Possible brute force attempt."
+
+---
+# AlertManager Configuration (patch existing configmap)
+# kubectl edit secret alertmanager-monitoring-kube-prometheus-alertmanager -n monitoring
+#
+# alertmanager.yaml:
+#   global:
+#     resolve_timeout: 5m
+#   route:
+#     group_by: ['alertname', 'namespace']
+#     group_wait: 30s
+#     group_interval: 5m
+#     repeat_interval: 4h
+#     receiver: default
+#     routes:
+#       - match:
+#           severity: critical
+#         receiver: critical-alerts
+#         repeat_interval: 1h
+#       - match:
+#           severity: warning
+#         receiver: warning-alerts
+#         repeat_interval: 4h
+#   receivers:
+#     - name: default
+#       slack_configs:
+#         - api_url: "{{SLACK_WEBHOOK}}"
+#           channel: "#alerts"
+#           send_resolved: true
+#           title: '[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}'
+#           text: '{{ .CommonAnnotations.summary }}'
+#     - name: critical-alerts
+#       slack_configs:
+#         - api_url: "{{SLACK_WEBHOOK}}"
+#           channel: "#alerts-critical"
+#           send_resolved: true
+#           title: '[CRITICAL] {{ .GroupLabels.alertname }}'
+#           text: "{{ .CommonAnnotations.description }}\nRunbook: {{ .CommonAnnotations.runbook }}"
+#     - name: warning-alerts
+#       slack_configs:
+#         - api_url: "{{SLACK_WEBHOOK}}"
+#           channel: "#alerts"
+#           send_resolved: true

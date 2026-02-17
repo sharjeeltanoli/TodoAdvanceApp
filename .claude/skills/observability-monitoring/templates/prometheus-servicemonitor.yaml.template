@@ -1,0 +1,137 @@
+# Prometheus ServiceMonitor - Scraping Configuration
+# Tells Prometheus which services to scrape and how.
+# Requires: kube-prometheus-stack installed with ServiceMonitor CRD
+#
+# Variables:
+#   {{NAMESPACE}}       - Target namespace (e.g., production)
+#   {{APP_LABEL}}       - App label selector (e.g., hackathon-todo)
+#   {{SCRAPE_INTERVAL}} - Scrape frequency (e.g., 15s, 30s)
+
+---
+# Backend ServiceMonitor (FastAPI /metrics)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: backend-metrics
+  namespace: {{NAMESPACE}}
+  labels:
+    app: {{APP_LABEL}}
+    component: backend
+    release: monitoring  # Must match Prometheus release label
+spec:
+  selector:
+    matchLabels:
+      app: {{APP_LABEL}}
+      component: backend
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{SCRAPE_INTERVAL}}
+      scrapeTimeout: 10s
+      honorLabels: true
+      metricRelabelings:
+        # Drop high-cardinality metrics to save storage
+        - sourceLabels: [__name__]
+          regex: "python_gc_.*"
+          action: drop
+        # Rename for consistency
+        - sourceLabels: [__name__]
+          regex: "http_request_duration_seconds_(.*)"
+          targetLabel: __name__
+          replacement: "api_request_duration_seconds_${1}"
+  namespaceSelector:
+    matchNames:
+      - {{NAMESPACE}}
+
+---
+# Frontend ServiceMonitor (Next.js custom metrics, if exposed)
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: frontend-metrics
+  namespace: {{NAMESPACE}}
+  labels:
+    app: {{APP_LABEL}}
+    component: frontend
+    release: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: {{APP_LABEL}}
+      component: frontend
+  endpoints:
+    - port: http
+      path: /api/metrics
+      interval: 30s
+      scrapeTimeout: 10s
+  namespaceSelector:
+    matchNames:
+      - {{NAMESPACE}}
+
+---
+# MCP Server ServiceMonitor
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: mcp-server-metrics
+  namespace: {{NAMESPACE}}
+  labels:
+    app: {{APP_LABEL}}
+    component: mcp-server
+    release: monitoring
+spec:
+  selector:
+    matchLabels:
+      app: {{APP_LABEL}}
+      component: mcp-server
+  endpoints:
+    - port: http
+      path: /metrics
+      interval: {{SCRAPE_INTERVAL}}
+      scrapeTimeout: 10s
+  namespaceSelector:
+    matchNames:
+      - {{NAMESPACE}}
+
+---
+# PrometheusRule — Custom recording rules for frequently-used queries
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: app-recording-rules
+  namespace: {{NAMESPACE}}
+  labels:
+    release: monitoring
+spec:
+  groups:
+    - name: app.rules
+      interval: 30s
+      rules:
+        # Request rate per endpoint (5m window)
+        - record: api:request_rate:5m
+          expr: rate(api_request_duration_seconds_count{namespace="{{NAMESPACE}}"}[5m])
+
+        # Error rate percentage (5m window)
+        - record: api:error_rate_percent:5m
+          expr: >
+            100 * (
+              sum(rate(api_request_duration_seconds_count{namespace="{{NAMESPACE}}", status=~"5.."}[5m]))
+              /
+              sum(rate(api_request_duration_seconds_count{namespace="{{NAMESPACE}}"}[5m]))
+            )
+
+        # p95 latency per endpoint
+        - record: api:latency_p95:5m
+          expr: >
+            histogram_quantile(0.95,
+              sum(rate(api_request_duration_seconds_bucket{namespace="{{NAMESPACE}}"}[5m]))
+              by (le, path)
+            )
+
+        # p99 latency overall
+        - record: api:latency_p99:5m
+          expr: >
+            histogram_quantile(0.99,
+              sum(rate(api_request_duration_seconds_bucket{namespace="{{NAMESPACE}}"}[5m]))
+              by (le)
+            )
