@@ -3,6 +3,7 @@ import { headers } from "next/headers";
 import { redirect } from "next/navigation";
 import { getTasks } from "./actions";
 import { TaskList } from "@/components/tasks/task-list";
+import { DashboardClient } from "./dashboard-client";
 
 export default async function DashboardPage() {
   const session = await auth.api.getSession({
@@ -36,7 +37,7 @@ export default async function DashboardPage() {
             will still be saved when the connection is restored.
           </div>
         )}
-        <TaskList tasks={tasks} />
+        <DashboardClient tasks={tasks} />
       </div>
     </div>
   );

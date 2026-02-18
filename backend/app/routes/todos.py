@@ -1,3 +1,5 @@
+import asyncio
+import logging
 import uuid
 from datetime import datetime
 from typing import Optional
@@ -9,7 +11,10 @@ from sqlmodel import select
 
 from app.database import get_session
 from app.dependencies import get_current_user
+from app.events.publisher import publish_task_event
 from app.models import Task, TaskCreate, TaskUpdate, TaskResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Tasks"])
 
@@ -30,6 +35,10 @@ async def create_todo(
     db.add(task)
     await db.commit()
     await db.refresh(task)
+
+    # Fire-and-forget event publishing
+    asyncio.create_task(publish_task_event("created", task, user_id, db))
+
     return task
 
 
@@ -178,11 +187,21 @@ async def update_todo(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     update_data = data.model_dump(exclude_unset=True)
+    # Track changes for event payload
+    changed_fields = {}
     for key, value in update_data.items():
+        old_val = getattr(task, key, None)
+        if old_val != value:
+            changed_fields[key] = {"old": old_val, "new": value}
         setattr(task, key, value)
     task.updated_at = datetime.utcnow()
     await db.commit()
     await db.refresh(task)
+
+    # Fire-and-forget event publishing
+    if changed_fields:
+        asyncio.create_task(publish_task_event("updated", task, user_id, db, changed_fields))
+
     return task
 
 
@@ -198,6 +217,10 @@ async def delete_todo(
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+
+    # Publish event before deletion (need task data for event)
+    asyncio.create_task(publish_task_event("deleted", task, user_id, db))
+
     await db.delete(task)
     await db.commit()
 
@@ -214,10 +237,17 @@ async def toggle_complete(
     task = result.scalar_one_or_none()
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
+    old_completed = task.completed
     task.completed = not task.completed
     task.updated_at = datetime.utcnow()
     await db.commit()
     await db.refresh(task)
+
+    # Fire-and-forget event publishing
+    event_type = "completed" if task.completed else "updated"
+    changed = {"completed": {"old": old_completed, "new": task.completed}}
+    asyncio.create_task(publish_task_event(event_type, task, user_id, db, changed))
+
     return task
 
 

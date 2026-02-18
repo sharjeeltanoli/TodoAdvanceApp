@@ -470,17 +470,95 @@ async def delete_task(
 # ===================================================================
 
 from starlette.applications import Starlette
+from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import Mount, Route
 
+DAPR_BASE = "http://localhost:3500"
 
-async def health(request):
+
+async def health(request: Request):
     return JSONResponse({"status": "ok"})
+
+
+async def dapr_subscribe(request: Request):
+    """Dapr programmatic subscription — receive task-events for AI context."""
+    return JSONResponse([
+        {
+            "pubsubname": "pubsub",
+            "topic": "task-events",
+            "route": "/events/task",
+        },
+    ])
+
+
+async def handle_task_event(request: Request):
+    """Cache recent task events in Dapr state store for AI agent context.
+
+    Maintains a rolling window of the last 20 events per user under
+    key `mcp-context:{user_id}` with a 1-hour TTL.
+    """
+    try:
+        envelope = await request.json()
+        data = envelope.get("data", {})
+        user_id = data.get("user_id", "")
+
+        if not user_id:
+            return JSONResponse({"status": "SUCCESS"})
+
+        state_key = f"mcp-context:{user_id}"
+
+        # Read current cached events from Dapr state store
+        cached_events: list[dict] = []
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                resp = await client.get(f"{DAPR_BASE}/v1.0/state/statestore/{state_key}")
+                if resp.status_code == 200 and resp.text:
+                    cached_events = resp.json()
+                    if not isinstance(cached_events, list):
+                        cached_events = []
+        except Exception:
+            cached_events = []
+
+        # Append new event summary
+        event_summary = {
+            "event_type": data.get("event_type", "unknown"),
+            "task_id": data.get("task_id"),
+            "timestamp": data.get("timestamp", datetime.now(timezone.utc).isoformat()),
+            "task_title": data.get("task", {}).get("title") if data.get("task") else None,
+        }
+        cached_events.insert(0, event_summary)
+
+        # Keep only last 20 events
+        cached_events = cached_events[:20]
+
+        # Save back to Dapr state store with 1-hour TTL
+        try:
+            async with httpx.AsyncClient(timeout=5) as client:
+                await client.post(
+                    f"{DAPR_BASE}/v1.0/state/statestore",
+                    json=[
+                        {
+                            "key": state_key,
+                            "value": cached_events,
+                            "metadata": {"ttlInSeconds": "3600"},
+                        }
+                    ],
+                )
+        except Exception:
+            pass  # Non-critical — state caching is best-effort
+
+    except Exception:
+        pass  # Never fail event processing
+
+    return JSONResponse({"status": "SUCCESS"})
 
 
 app = Starlette(
     routes=[
         Route("/health", health),
+        Route("/dapr/subscribe", dapr_subscribe),
+        Route("/events/task", handle_task_event, methods=["POST"]),
         Mount("/mcp", app=mcp.streamable_http_app()),
     ],
 )

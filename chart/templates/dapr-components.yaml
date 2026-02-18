@@ -1,0 +1,138 @@
+{{- if .Values.dapr.enabled }}
+# Pub/Sub Component (Redpanda/Kafka)
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: pubsub
+spec:
+  type: pubsub.kafka
+  version: v1
+  metadata:
+    - name: brokers
+      value: {{ .Values.dapr.pubsub.brokers | quote }}
+    - name: consumerGroup
+      value: "{appID}-group"
+    - name: authType
+      value: {{ .Values.dapr.pubsub.authType | quote }}
+    - name: disableTls
+      value: {{ .Values.dapr.pubsub.disableTls | quote }}
+    - name: maxMessageBytes
+      value: "1048576"
+    - name: consumeRetryInterval
+      value: "200ms"
+    - name: version
+      value: "2.0.0"
+    - name: allowedTopics
+      value: "task-events,reminders,task-updates"
+  scopes:
+    - backend-api
+    - notification-svc
+    - sse-gateway
+    - mcp-server
+---
+# State Store Component (Redis)
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: statestore
+spec:
+  type: state.redis
+  version: v1
+  metadata:
+    - name: redisHost
+      value: {{ .Values.dapr.statestore.redisHost | quote }}
+    - name: redisPassword
+      value: ""
+    - name: actorStateStore
+      value: "false"
+    - name: keyPrefix
+      value: "name"
+  scopes:
+    - backend-api
+    - notification-svc
+    - mcp-server
+---
+# Cron Binding for Overdue Checks
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: cron-overdue-check
+spec:
+  type: bindings.cron
+  version: v1
+  metadata:
+    - name: schedule
+      value: {{ .Values.dapr.cronSchedule | quote }}
+    - name: route
+      value: "/cron-overdue-check"
+  scopes:
+    - backend-api
+---
+# Kubernetes Secrets Store
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: kubernetes
+spec:
+  type: secretstores.kubernetes
+  version: v1
+  metadata: []
+---
+# Dapr Configuration
+apiVersion: dapr.io/v1alpha1
+kind: Configuration
+metadata:
+  name: dapr-config
+spec:
+  mtls:
+    enabled: {{ .Values.dapr.mtls.enabled }}
+  tracing:
+    samplingRate: {{ .Values.dapr.tracing.samplingRate | quote }}
+    zipkin:
+      endpointAddress: {{ .Values.dapr.tracing.endpointAddress | quote }}
+  metric:
+    enabled: {{ .Values.dapr.metrics.enabled }}
+  logging:
+    apiLogging:
+      enabled: true
+---
+# Resiliency Policy
+apiVersion: dapr.io/v1alpha1
+kind: Resiliency
+metadata:
+  name: todo-app-resiliency
+spec:
+  policies:
+    retries:
+      pubsubRetry:
+        policy: exponential
+        maxInterval: 30s
+        maxRetries: 5
+      serviceRetry:
+        policy: constant
+        duration: 3s
+        maxRetries: 3
+    circuitBreakers:
+      simpleCB:
+        maxRequests: 1
+        interval: 10s
+        timeout: 30s
+        trip: consecutiveFailures >= 3
+  targets:
+    apps:
+      notification-svc:
+        retry: serviceRetry
+        circuitBreaker: simpleCB
+      mcp-server:
+        retry: serviceRetry
+        circuitBreaker: simpleCB
+    components:
+      pubsub:
+        outbound:
+          retry: pubsubRetry
+        inbound:
+          retry: pubsubRetry
+      statestore:
+        outbound:
+          retry: serviceRetry
+{{- end }}

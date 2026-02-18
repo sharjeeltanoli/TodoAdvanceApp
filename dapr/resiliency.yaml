@@ -1,0 +1,41 @@
+apiVersion: dapr.io/v1alpha1
+kind: Resiliency
+metadata:
+  name: todo-app-resiliency
+spec:
+  policies:
+    retries:
+      pubsubRetry:
+        policy: exponential
+        maxInterval: 30s
+        maxRetries: 5
+      serviceRetry:
+        policy: constant
+        duration: 3s
+        maxRetries: 3
+    circuitBreakers:
+      simpleCB:
+        maxRequests: 1
+        interval: 10s
+        timeout: 30s
+        trip: consecutiveFailures >= 3
+  targets:
+    apps:
+      notification-svc:
+        retry: serviceRetry
+        circuitBreaker: simpleCB
+      mcp-server:
+        retry: serviceRetry
+        circuitBreaker: simpleCB
+      sse-gateway:
+        retry: serviceRetry
+        circuitBreaker: simpleCB
+    components:
+      pubsub:
+        outbound:
+          retry: pubsubRetry
+        inbound:
+          retry: pubsubRetry
+      statestore:
+        outbound:
+          retry: serviceRetry

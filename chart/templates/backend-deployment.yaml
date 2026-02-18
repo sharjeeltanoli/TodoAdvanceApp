@@ -21,6 +21,21 @@ spec:
       labels:
         {{- include "todo-app.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: backend
+      {{- if .Values.dapr.enabled }}
+      annotations:
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "backend-api"
+        dapr.io/app-port: "8000"
+        dapr.io/app-protocol: "http"
+        dapr.io/log-level: "info"
+        dapr.io/config: "dapr-config"
+        dapr.io/enable-metrics: "true"
+        dapr.io/metrics-port: "9090"
+        dapr.io/sidecar-cpu-request: "100m"
+        dapr.io/sidecar-memory-request: "128Mi"
+        dapr.io/sidecar-cpu-limit: "300m"
+        dapr.io/sidecar-memory-limit: "256Mi"
+      {{- end }}
     spec:
       securityContext:
         runAsNonRoot: true

@@ -1,0 +1,65 @@
+# Kubernetes Deployment with Dapr Sidecar Injection
+# Docs: https://docs.dapr.io/operations/hosting/kubernetes/kubernetes-overview/
+#
+# This is a strategic merge patch — apply on top of existing deployments.
+# kubectl apply -f dapr-deployment-patch.yaml
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{DEPLOYMENT_NAME|default:backend-api}}
+  namespace: {{NAMESPACE|default:default}}
+spec:
+  template:
+    metadata:
+      annotations:
+        # --- Required Dapr Annotations ---
+        dapr.io/enabled: "true"
+        dapr.io/app-id: "{{APP_ID|default:backend-api}}"
+        dapr.io/app-port: "{{APP_PORT|default:8000}}"
+        dapr.io/app-protocol: "{{APP_PROTOCOL|default:http}}"  # http | grpc | https | grpcs
+
+        # --- Logging & Observability ---
+        dapr.io/log-level: "{{LOG_LEVEL|default:info}}"  # debug | info | warn | error
+        dapr.io/config: "{{DAPR_CONFIG|default:dapr-config}}"
+        dapr.io/enable-metrics: "true"
+        dapr.io/metrics-port: "9090"
+
+        # --- Sidecar Resource Limits ---
+        dapr.io/sidecar-cpu-request: "{{CPU_REQUEST|default:100m}}"
+        dapr.io/sidecar-memory-request: "{{MEM_REQUEST|default:128Mi}}"
+        dapr.io/sidecar-cpu-limit: "{{CPU_LIMIT|default:300m}}"
+        dapr.io/sidecar-memory-limit: "{{MEM_LIMIT|default:256Mi}}"
+
+        # --- Optional: API Access Control ---
+        # dapr.io/app-token-secret: "dapr-app-token"
+
+        # --- Optional: Max Request Body Size ---
+        dapr.io/http-max-request-size: "16"  # MB
+
+        # --- Optional: Graceful Shutdown ---
+        dapr.io/graceful-shutdown-seconds: "5"
+
+    spec:
+      containers:
+        - name: {{CONTAINER_NAME|default:backend-api}}
+          # Readiness probe — Dapr waits for this before routing traffic
+          readinessProbe:
+            httpGet:
+              path: /health
+              port: {{APP_PORT|default:8000}}
+            initialDelaySeconds: 5
+            periodSeconds: 10
+          # Liveness probe
+          livenessProbe:
+            httpGet:
+              path: /health
+              port: {{APP_PORT|default:8000}}
+            initialDelaySeconds: 10
+            periodSeconds: 30
+          env:
+            # Dapr sidecar HTTP port (app uses this to call Dapr APIs)
+            - name: DAPR_HTTP_PORT
+              value: "3500"
+            - name: DAPR_GRPC_PORT
+              value: "50001"

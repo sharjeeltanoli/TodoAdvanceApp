@@ -1,0 +1,39 @@
+# Dapr Declarative Subscription
+# Docs: https://docs.dapr.io/developing-applications/building-blocks/pubsub/subscription-methods/#declarative-subscriptions
+#
+# Alternative to programmatic subscriptions (GET /dapr/subscribe).
+# Place alongside components and apply with kubectl.
+
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: {{SUBSCRIPTION_NAME|default:task-events-subscription}}
+  namespace: {{NAMESPACE|default:default}}
+spec:
+  pubsubname: {{PUBSUB_NAME|default:pubsub}}
+  topic: {{TOPIC|default:task-events}}
+  routes:
+    # Default route
+    default: /events/{{TOPIC|default:task-events}}
+
+    # Content-based routing (optional):
+    # Route events to different endpoints based on CloudEvents attributes.
+    # rules:
+    #   - match: event.type == "task.created"
+    #     path: /events/task/created
+    #   - match: event.type == "task.completed"
+    #     path: /events/task/completed
+    #   - match: event.type == "task.deleted"
+    #     path: /events/task/deleted
+
+  # Dead letter topic for failed messages
+  deadLetterTopic: {{DEAD_LETTER_TOPIC|default:dead-letters}}
+
+  # Bulk subscribe for high-throughput scenarios
+  # bulkSubscribe:
+  #   enabled: true
+  #   maxMessagesCount: 100
+  #   maxAwaitDurationMs: 1000
+
+scopes:
+  - {{APP_ID|default:backend-api}}

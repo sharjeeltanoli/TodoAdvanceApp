@@ -8,12 +8,53 @@ metadata:
   annotations:
     nginx.ingress.kubernetes.io/ssl-redirect: "false"
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
+    # SSE / streaming: disable proxy buffering for /api/stream/
+    nginx.ingress.kubernetes.io/proxy-buffering: "off"
+    nginx.ingress.kubernetes.io/proxy-read-timeout: "3600"
+    nginx.ingress.kubernetes.io/proxy-send-timeout: "3600"
 spec:
   ingressClassName: {{ .Values.ingress.className }}
   rules:
     - host: {{ .Values.ingress.host }}
       http:
         paths:
+          # Backend API routes (all /api/ except /api/auth/ which is handled by frontend)
+          - path: /api/stream
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "todo-app.fullname" . }}-backend
+                port:
+                  number: {{ .Values.backend.service.port }}
+          - path: /api/todos
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "todo-app.fullname" . }}-backend
+                port:
+                  number: {{ .Values.backend.service.port }}
+          - path: /api/notifications
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "todo-app.fullname" . }}-backend
+                port:
+                  number: {{ .Values.backend.service.port }}
+          - path: /api/chat
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "todo-app.fullname" . }}-backend
+                port:
+                  number: {{ .Values.backend.service.port }}
+          - path: /chatkit
+            pathType: Prefix
+            backend:
+              service:
+                name: {{ include "todo-app.fullname" . }}-backend
+                port:
+                  number: {{ .Values.backend.service.port }}
+          # Everything else → frontend (handles /api/auth/, pages, static assets)
           - path: /
             pathType: Prefix
             backend:

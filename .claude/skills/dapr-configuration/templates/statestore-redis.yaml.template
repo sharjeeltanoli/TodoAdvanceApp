@@ -1,0 +1,38 @@
+# Dapr State Store Component — Redis (Local Development)
+# Docs: https://docs.dapr.io/reference/components-reference/supported-state-stores/setup-redis/
+#
+# Usage: For local dev. Redis installed by `dapr init`.
+
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{STATE_STORE_NAME|default:statestore}}
+  namespace: {{NAMESPACE|default:default}}
+spec:
+  type: state.redis
+  version: v1
+  metadata:
+    - name: redisHost
+      value: "{{REDIS_HOST|default:redis-master.default.svc.cluster.local:6379}}"
+    - name: redisPassword
+      value: "{{REDIS_PASSWORD|default:}}"
+    - name: enableTLS
+      value: "false"
+
+    # --- Key Configuration ---
+    - name: keyPrefix
+      value: "{{KEY_PREFIX|default:name}}"  # name | appid | none
+    - name: actorStateStore
+      value: "false"
+
+    # --- TTL ---
+    - name: ttlInSeconds
+      value: "{{TTL|default:0}}"  # 0 = no expiration
+
+    # --- Performance ---
+    - name: queryIndexes
+      value: "{{QUERY_INDEXES|default:}}"  # JSON query indexes
+
+  scopes:
+    - {{APP_ID_1|default:backend-api}}
+    - {{APP_ID_2|default:mcp-server}}

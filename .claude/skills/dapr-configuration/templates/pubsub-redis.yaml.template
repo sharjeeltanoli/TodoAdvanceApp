@@ -1,0 +1,41 @@
+# Dapr Pub/Sub Component — Redis Streams (Local Development)
+# Docs: https://docs.dapr.io/reference/components-reference/supported-pubsub/setup-redis-pubsub/
+#
+# Usage: For local dev with Minikube or Docker Compose.
+# Redis is installed automatically by `dapr init` or `dapr init -k`.
+
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{PUBSUB_NAME|default:pubsub}}
+  namespace: {{NAMESPACE|default:default}}
+spec:
+  type: pubsub.redis
+  version: v1
+  metadata:
+    - name: redisHost
+      value: "{{REDIS_HOST|default:redis-master.default.svc.cluster.local:6379}}"
+    - name: redisPassword
+      value: "{{REDIS_PASSWORD|default:}}"
+    # For local Docker mode (dapr init):
+    # value: "localhost:6379"
+
+    # --- Consumer Configuration ---
+    - name: consumerID
+      value: "{{CONSUMER_ID|default:todo-app}}"
+    - name: enableTLS
+      value: "false"
+    - name: processingTimeout
+      value: "60s"
+    - name: redeliverInterval
+      value: "15s"
+    - name: maxRetry
+      value: "3"
+
+    # --- Connection Pool ---
+    - name: maxLenApprox
+      value: "1000"  # Max stream length (approximate)
+
+  scopes:
+    - {{APP_ID_1|default:backend-api}}
+    - {{APP_ID_2|default:mcp-server}}
