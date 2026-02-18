@@ -1,0 +1,210 @@
+# API Contracts — Event-Driven Todo System (Additions)
+# New endpoints added by Phase 5B
+
+openapi: 3.1.0
+info:
+  title: Todo App — Event-Driven Extensions
+  version: 5.0.0
+
+paths:
+  # --- Notification Service Endpoints ---
+  /api/notifications:
+    get:
+      summary: List notifications for current user
+      tags: [Notifications]
+      parameters:
+        - name: unread_only
+          in: query
+          schema: { type: boolean, default: false }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20, maximum: 50 }
+        - name: cursor
+          in: query
+          schema: { type: string }
+      responses:
+        200:
+          description: Paginated notification list
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  notifications:
+                    type: array
+                    items: { $ref: "#/components/schemas/Notification" }
+                  next_cursor: { type: string, nullable: true }
+        401: { description: Unauthorized }
+
+  /api/notifications/{id}/read:
+    patch:
+      summary: Mark notification as read
+      tags: [Notifications]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+      responses:
+        200: { description: Notification marked as read }
+        404: { description: Notification not found }
+
+  /api/notifications/read-all:
+    post:
+      summary: Mark all notifications as read
+      tags: [Notifications]
+      responses:
+        200:
+          description: Count of notifications marked read
+          content:
+            application/json:
+              schema:
+                properties:
+                  count: { type: integer }
+
+  /api/notifications/unread-count:
+    get:
+      summary: Get unread notification count
+      tags: [Notifications]
+      responses:
+        200:
+          content:
+            application/json:
+              schema:
+                properties:
+                  count: { type: integer }
+
+  # --- Task Event History (Audit Trail) ---
+  /api/todos/{id}/history:
+    get:
+      summary: Get event history for a task
+      tags: [Tasks]
+      parameters:
+        - name: id
+          in: path
+          required: true
+          schema: { type: string, format: uuid }
+        - name: limit
+          in: query
+          schema: { type: integer, default: 20 }
+      responses:
+        200:
+          description: Chronological event list
+          content:
+            application/json:
+              schema:
+                type: array
+                items: { $ref: "#/components/schemas/TaskEvent" }
+        404: { description: Task not found }
+
+  # --- SSE Stream ---
+  /api/stream/tasks:
+    get:
+      summary: SSE stream for real-time task updates
+      tags: [Real-Time]
+      description: |
+        Server-Sent Events endpoint. Clients connect and receive task change
+        notifications for the authenticated user. Events are JSON-encoded.
+
+        Each SSE message has `event: sync.task-changed` and `data:` containing
+        a JSON object conforming to the SSETaskUpdate schema.
+
+        Reconnection: Clients should auto-reconnect with exponential backoff.
+        The stream sends a heartbeat comment (`: ping`) every 30 seconds.
+      parameters:
+        - name: Authorization
+          in: header
+          required: true
+          schema: { type: string }
+          description: "Bearer token for authentication"
+      responses:
+        200:
+          description: SSE stream of task change events
+          content:
+            text/event-stream:
+              schema:
+                type: string
+                description: |
+                  SSE format: `event: <event-type>\ndata: <json>\n\n`
+              examples:
+                task-changed:
+                  value: |
+                    event: sync.task-changed
+                    data: {"change_type":"created","task_id":"uuid","user_id":"user-123","changed_fields":[],"timestamp":"2026-02-17T10:30:00Z"}
+        401: { description: Unauthorized — missing or invalid Bearer token }
+
+components:
+  schemas:
+    # --- SSE Event Payloads ---
+    SSETaskUpdate:
+      type: object
+      description: Payload for real-time task sync events (topic: task-updates)
+      required: [change_type, task_id, user_id, changed_fields, timestamp]
+      properties:
+        change_type: { type: string, enum: [created, updated, deleted, completed] }
+        task_id: { type: string, format: uuid }
+        user_id: { type: string }
+        changed_fields: { type: array, items: { type: string }, description: "List of field names that changed (empty for create/delete)" }
+        timestamp: { type: string, format: date-time }
+
+    TaskEventPayload:
+      type: object
+      description: Full task event payload (topic: task-events)
+      required: [event_type, task_id, user_id]
+      properties:
+        event_type: { type: string, enum: [created, updated, deleted, completed] }
+        task_id: { type: string, format: uuid }
+        user_id: { type: string }
+        task: { $ref: "#/components/schemas/TaskSnapshot", nullable: true, description: "Full task snapshot (null for delete events)" }
+        changed_fields: { type: object, nullable: true, description: "Map of field → {old, new} for update events" }
+
+    ReminderPayload:
+      type: object
+      description: Reminder event payload (topic: reminders)
+      required: [reminder_type, task_id, user_id, title, due_date, link]
+      properties:
+        reminder_type: { type: string, enum: [upcoming, overdue] }
+        task_id: { type: string, format: uuid }
+        user_id: { type: string }
+        title: { type: string }
+        due_date: { type: string, format: date-time }
+        link: { type: string }
+
+    TaskSnapshot:
+      type: object
+      description: Point-in-time snapshot of a task (used in task-events)
+      properties:
+        id: { type: string, format: uuid }
+        title: { type: string }
+        description: { type: string, nullable: true }
+        completed: { type: boolean }
+        priority: { type: string, enum: [high, medium, low] }
+        tags: { type: array, items: { type: string } }
+        due_date: { type: string, format: date-time, nullable: true }
+        recurrence_pattern: { type: object, nullable: true }
+        created_at: { type: string, format: date-time }
+        updated_at: { type: string, format: date-time }
+
+    # --- Existing Schemas ---
+    Notification:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        type: { type: string, enum: [reminder_upcoming, reminder_overdue, task_recurring] }
+        title: { type: string }
+        body: { type: string, nullable: true }
+        task_id: { type: string, format: uuid, nullable: true }
+        read: { type: boolean }
+        created_at: { type: string, format: date-time }
+
+    TaskEvent:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        event_type: { type: string, enum: [created, updated, deleted, completed] }
+        task_id: { type: string, format: uuid }
+        user_id: { type: string }
+        timestamp: { type: string, format: date-time }
+        data: { type: object }
+        changed_fields: { type: object, nullable: true }
+        event_source: { type: string }

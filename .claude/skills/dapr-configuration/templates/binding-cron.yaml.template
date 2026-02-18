@@ -1,0 +1,31 @@
+# Dapr Cron Input Binding — Scheduled Task Execution
+# Docs: https://docs.dapr.io/reference/components-reference/supported-bindings/cron/
+#
+# Dapr will POST to your app at the configured schedule.
+# Your app must expose: POST /{{BINDING_NAME}}
+# Return 200 to acknowledge, non-200 to signal failure.
+
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{BINDING_NAME|default:cron-overdue-check}}
+  namespace: {{NAMESPACE|default:default}}
+spec:
+  type: bindings.cron
+  version: v1
+  metadata:
+    - name: schedule
+      value: "{{SCHEDULE|default:@every 5m}}"
+      # Common schedules:
+      #   @every 5m        — Every 5 minutes
+      #   @every 1h        — Every hour
+      #   @daily           — Once per day (midnight)
+      #   0 */5 * * * *    — Cron: every 5 minutes
+      #   0 0 9 * * *      — Cron: daily at 9 AM
+      #   0 0 */1 * * *    — Cron: every hour on the hour
+
+    - name: direction
+      value: "input"  # input = Dapr calls your app; output = your app triggers
+
+  scopes:
+    - {{APP_ID|default:backend-api}}

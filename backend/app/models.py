@@ -143,6 +143,46 @@ class TaskResponse(TaskBase):
 # --- Phase 3: Conversation & Message models ---
 
 
+# --- Phase 5: Event-Driven models ---
+
+
+class TaskEvent(SQLModel, table=True):
+    """Persists every task change for audit trail (User Story 4)."""
+    __tablename__ = "task_event"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    event_type: str = Field(max_length=20, nullable=False)  # created, updated, deleted, completed
+    task_id: uuid.UUID = Field(nullable=False, index=True)
+    user_id: str = Field(max_length=255, nullable=False, index=True)
+    timestamp: datetime = Field(default_factory=datetime.utcnow)
+    data: dict = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    changed_fields: dict | None = Field(default=None, sa_column=Column(JSON, nullable=True))
+    event_source: str = Field(default="api", max_length=50)  # api, scheduler, recurring
+
+
+class Notification(SQLModel, table=True):
+    """Stores in-app notifications for users."""
+    __tablename__ = "notification"
+
+    id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
+    user_id: str = Field(max_length=255, nullable=False, index=True)
+    type: str = Field(max_length=30, nullable=False)  # reminder_upcoming, reminder_overdue, task_recurring
+    title: str = Field(max_length=255, nullable=False)
+    body: str | None = Field(default=None)
+    task_id: uuid.UUID | None = Field(default=None)
+    read: bool = Field(default=False)
+    created_at: datetime = Field(default_factory=datetime.utcnow)
+
+
+class ProcessedEvent(SQLModel, table=True):
+    """Tracks processed event IDs for consumer idempotency."""
+    __tablename__ = "processed_event"
+
+    event_id: str = Field(max_length=255, primary_key=True)
+    consumer_group: str = Field(max_length=100, nullable=False)
+    processed_at: datetime = Field(default_factory=datetime.utcnow)
+
+
 class Conversation(SQLModel, table=True):
     id: uuid.UUID = Field(default_factory=uuid.uuid4, primary_key=True)
     user_id: str = Field(index=True, nullable=False)

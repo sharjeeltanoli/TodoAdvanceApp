@@ -1,0 +1,29 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: pubsub
+spec:
+  type: pubsub.kafka
+  version: v1
+  metadata:
+    - name: brokers
+      value: "redpanda-0.redpanda.default.svc.cluster.local:9093"
+    - name: consumerGroup
+      value: "{appID}-group"
+    - name: authType
+      value: "none"
+    - name: disableTls
+      value: "true"
+    - name: maxMessageBytes
+      value: "1048576"
+    - name: consumeRetryInterval
+      value: "200ms"
+    - name: version
+      value: "2.0.0"
+    - name: allowedTopics
+      value: "task-events,reminders,task-updates"
+scopes:
+  - backend-api
+  - notification-svc
+  - sse-gateway
+  - mcp-server

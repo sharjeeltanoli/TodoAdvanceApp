@@ -77,8 +77,93 @@ secrets:
   openaiApiKey: ""
   frontendDatabaseUrl: ""
 
-# --- Ingress (optional, disabled by default) ---
+# --- Notification Service ---
+notification:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: todo-notification
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 8002
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# --- SSE Gateway ---
+sseGateway:
+  enabled: true
+  replicaCount: 1
+  image:
+    repository: todo-sse-gateway
+    tag: "latest"
+  service:
+    type: ClusterIP
+    port: 8003
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# --- Redpanda (Kafka-compatible broker) ---
+redpanda:
+  enabled: true
+  image:
+    repository: docker.redpanda.com/redpandadata/redpanda
+    tag: "v24.1.1"
+  storage:
+    size: 2Gi
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: "1"
+      memory: 256Mi
+
+# --- Redis (Dapr state store) ---
+redis:
+  enabled: true
+  image:
+    repository: redis
+    tag: "7-alpine"
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 200m
+      memory: 128Mi
+
+# --- Dapr Configuration ---
+dapr:
+  enabled: true
+  pubsub:
+    brokers: "todo-app-redpanda-0.todo-app-redpanda:9093"
+    authType: "none"
+    disableTls: "true"
+  statestore:
+    redisHost: "todo-app-redis:6379"
+  cronSchedule: "@every 5m"
+  mtls:
+    enabled: true
+  tracing:
+    samplingRate: "1"
+    endpointAddress: "http://jaeger-collector.monitoring.svc.cluster.local:9411/api/v2/spans"
+  metrics:
+    enabled: true
+
+# --- Ingress (enabled by default for local Minikube — requires minikube addons enable ingress)
+# Access at http://todo.local after adding to /etc/hosts: $(minikube ip) todo.local
 ingress:
-  enabled: false
+  enabled: true
   className: nginx
   host: todo.local

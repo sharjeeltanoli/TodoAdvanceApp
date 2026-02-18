@@ -1,9 +1,12 @@
 "use client";
 
+import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { authClient } from "@/lib/auth-client";
 import { Button } from "@/components/ui/button";
+import { NotificationBell } from "@/components/notifications/notification-bell";
+import { NotificationList } from "@/components/notifications/notification-list";
 
 export default function DashboardLayout({
   children,
@@ -12,6 +15,15 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const [token, setToken] = useState<string | undefined>();
+  const [notifOpen, setNotifOpen] = useState(false);
+
+  useEffect(() => {
+    authClient.getSession().then((res) => {
+      const sessionToken = res.data?.session?.token;
+      if (sessionToken) setToken(sessionToken);
+    });
+  }, []);
 
   async function handleLogout() {
     await authClient.signOut();
@@ -52,9 +64,22 @@ export default function DashboardLayout({
               </Link>
             </div>
           </div>
-          <Button variant="ghost" onClick={handleLogout}>
-            Log Out
-          </Button>
+          <div className="flex items-center gap-2">
+            <div className="relative">
+              <NotificationBell
+                token={token}
+                onClick={() => setNotifOpen(!notifOpen)}
+              />
+              <NotificationList
+                token={token}
+                isOpen={notifOpen}
+                onClose={() => setNotifOpen(false)}
+              />
+            </div>
+            <Button variant="ghost" onClick={handleLogout}>
+              Log Out
+            </Button>
+          </div>
         </div>
       </nav>
       <main className={isChat ? "" : "mx-auto max-w-3xl px-4 py-8"}>

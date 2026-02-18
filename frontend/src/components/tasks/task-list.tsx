@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { TaskItem, TaskData } from "@/components/tasks/task-item";
 import { EmptyState } from "@/components/tasks/empty-state";
 import { TaskForm } from "@/components/tasks/task-form";
@@ -8,12 +8,14 @@ import { SearchInput } from "@/components/ui/search-input";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { SortSelect } from "@/components/ui/sort-select";
 import { getTasks, getAvailableTags } from "@/app/dashboard/actions";
+import { createTaskSSEConnection, SSEStatus, type SSEConnection } from "@/lib/sse";
 
 interface TaskListProps {
   tasks: TaskData[];
+  authToken?: string;
 }
 
-export function TaskList({ tasks: initialTasks }: TaskListProps) {
+export function TaskList({ tasks: initialTasks, authToken }: TaskListProps) {
   const [tasks, setTasks] = useState<TaskData[]>(initialTasks);
   const [search, setSearch] = useState("");
   const [statusFilter, setStatusFilter] = useState("");
@@ -22,10 +24,32 @@ export function TaskList({ tasks: initialTasks }: TaskListProps) {
   const [sortBy, setSortBy] = useState("created_at");
   const [sortDir, setSortDir] = useState("desc");
   const [availableTags, setAvailableTags] = useState<string[]>([]);
+  const [sseStatus, setSSEStatus] = useState<SSEStatus>("disconnected");
+  const sseRef = useRef<SSEConnection | null>(null);
 
   useEffect(() => {
     getAvailableTags().then(setAvailableTags).catch(() => {});
   }, []);
+
+  // SSE connection for real-time task updates
+  useEffect(() => {
+    if (!authToken) return;
+
+    const connection = createTaskSSEConnection(authToken);
+    sseRef.current = connection;
+
+    connection.onStatusChange(setSSEStatus);
+    connection.onEvent((event) => {
+      // Refetch tasks when any change event arrives
+      fetchTasks();
+      getAvailableTags().then(setAvailableTags).catch(() => {});
+    });
+
+    return () => {
+      connection.close();
+      sseRef.current = null;
+    };
+  }, [authToken]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const hasFilters = search || statusFilter || priorityFilter || tagFilter || sortBy !== "created_at";
 
@@ -69,6 +93,26 @@ export function TaskList({ tasks: initialTasks }: TaskListProps) {
 
   return (
     <div className="space-y-4">
+      {authToken && (
+        <div className="flex items-center gap-2 text-xs text-zinc-400">
+          <span
+            className={`inline-block h-2 w-2 rounded-full ${
+              sseStatus === "connected"
+                ? "bg-green-500"
+                : sseStatus === "connecting" || sseStatus === "reconnecting"
+                  ? "bg-yellow-500 animate-pulse"
+                  : "bg-zinc-400"
+            }`}
+          />
+          {sseStatus === "connected"
+            ? "Live"
+            : sseStatus === "reconnecting"
+              ? "Reconnecting..."
+              : sseStatus === "connecting"
+                ? "Connecting..."
+                : "Offline"}
+        </div>
+      )}
       <TaskForm onSuccess={handleTaskCreated} />
 
       {/* Search + Filter + Sort toolbar */}
@@ -99,7 +143,7 @@ export function TaskList({ tasks: initialTasks }: TaskListProps) {
       ) : (
         <div className="space-y-2">
           {tasks.map((task) => (
-            <TaskItem key={task.id} task={task} />
+            <TaskItem key={task.id} task={task} authToken={authToken} />
           ))}
         </div>
       )}

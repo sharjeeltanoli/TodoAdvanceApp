@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { PriorityBadge } from "@/components/ui/priority-badge";
 import { TaskForm } from "@/components/tasks/task-form";
 import { DeleteDialog } from "@/components/tasks/delete-dialog";
+import { TaskHistory } from "@/components/tasks/task-history";
 import { toggleComplete } from "@/app/dashboard/actions";
 
 export interface TaskData {
@@ -28,14 +29,16 @@ export interface TaskData {
 
 interface TaskItemProps {
   task: TaskData;
+  authToken?: string;
 }
 
-export function TaskItem({ task }: TaskItemProps) {
+export function TaskItem({ task, authToken }: TaskItemProps) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
   const [toggling, setToggling] = useState(false);
   const [expanded, setExpanded] = useState(false);
+  const [showHistory, setShowHistory] = useState(false);
 
   async function handleToggle() {
     setToggling(true);
@@ -176,6 +179,9 @@ export function TaskItem({ task }: TaskItemProps) {
           </div>
         </div>
         <div className="flex gap-1">
+          <Button variant="ghost" onClick={() => setShowHistory(!showHistory)}>
+            History
+          </Button>
           <Button variant="ghost" onClick={() => setEditing(true)}>
             Edit
           </Button>
@@ -184,6 +190,9 @@ export function TaskItem({ task }: TaskItemProps) {
           </Button>
         </div>
       </div>
+      {showHistory && (
+        <TaskHistory taskId={task.id} token={authToken} isOpen={showHistory} />
+      )}
       {showDelete && (
         <DeleteDialog
           taskId={task.id}

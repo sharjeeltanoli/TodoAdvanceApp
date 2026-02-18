@@ -1,0 +1,47 @@
+# Dapr State Store Component — PostgreSQL (Production)
+# Docs: https://docs.dapr.io/reference/components-reference/supported-state-stores/setup-postgresql-v2/
+#
+# Usage: Replace {{PLACEHOLDERS}} with actual values.
+# Supports transactions, ETags, and first-write-wins concurrency.
+
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: {{STATE_STORE_NAME|default:statestore}}
+  namespace: {{NAMESPACE|default:default}}
+spec:
+  type: state.postgresql.v2
+  version: v1
+  metadata:
+    # --- Connection ---
+    - name: connectionString
+      secretKeyRef:
+        name: {{SECRET_NAME|default:db-credentials}}
+        key: {{SECRET_KEY|default:connection-string}}
+    # Direct value (NOT recommended for production):
+    # value: "host=localhost user=postgres password=secret dbname=todoapp sslmode=require"
+
+    # --- Table Configuration ---
+    - name: tableName
+      value: "{{TABLE_NAME|default:dapr_state}}"
+    - name: metadataTableName
+      value: "{{METADATA_TABLE|default:dapr_metadata}}"
+    - name: schemaName
+      value: "{{SCHEMA|default:public}}"
+
+    # --- Cleanup ---
+    - name: cleanupInterval
+      value: "{{CLEANUP_INTERVAL|default:3600}}"  # Seconds; 0 to disable
+    - name: timeout
+      value: "20"  # Connection timeout in seconds
+
+    # --- Performance ---
+    - name: maxConns
+      value: "{{MAX_CONNS|default:10}}"
+
+  scopes:
+    - {{APP_ID_1|default:backend-api}}
+    - {{APP_ID_2|default:mcp-server}}
+
+auth:
+  secretStore: {{SECRET_STORE|default:kubernetes}}

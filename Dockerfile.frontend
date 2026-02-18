@@ -17,8 +17,11 @@ COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
 # NEXT_PUBLIC_* vars must be set at build time (inlined into JS bundle)
-ARG NEXT_PUBLIC_API_URL=http://localhost:30080
-ENV NEXT_PUBLIC_API_URL=$NEXT_PUBLIC_API_URL
+# Default to empty string — client-side code uses relative paths when empty
+# (ingress routes /api/todos, /api/notifications, /api/stream → backend)
+# Override at build time: docker build --build-arg NEXT_PUBLIC_BACKEND_URL=https://api.example.com
+ARG NEXT_PUBLIC_BACKEND_URL=
+ENV NEXT_PUBLIC_BACKEND_URL=$NEXT_PUBLIC_BACKEND_URL
 
 RUN npm run build
 

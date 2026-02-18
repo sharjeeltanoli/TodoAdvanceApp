@@ -1,0 +1,28 @@
+apiVersion: dapr.io/v1alpha1
+kind: Configuration
+metadata:
+  name: dapr-config
+spec:
+  mtls:
+    enabled: true
+    workloadCertTTL: "24h"
+    allowedClockSkew: "15m"
+  tracing:
+    samplingRate: "1"
+    zipkin:
+      endpointAddress: "http://jaeger-collector.monitoring.svc.cluster.local:9411/api/v2/spans"
+  metric:
+    enabled: true
+    rules:
+      - name: dapr_http_server_request_count
+        labels:
+          - name: method
+          - name: path
+      - name: dapr_http_client_request_count
+        labels:
+          - name: method
+          - name: path
+  logging:
+    apiLogging:
+      enabled: true
+      obfuscateURLs: false

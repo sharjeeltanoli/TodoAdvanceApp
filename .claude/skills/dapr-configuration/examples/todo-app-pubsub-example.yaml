@@ -1,0 +1,89 @@
+# Todo App — Pub/Sub Components (Local Dev with Redis)
+# Apply: kubectl apply -f todo-app-pubsub-example.yaml
+
+---
+# Pub/Sub component using Redis Streams (local/Minikube)
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: pubsub
+  namespace: default
+spec:
+  type: pubsub.redis
+  version: v1
+  metadata:
+    - name: redisHost
+      value: "redis-master.default.svc.cluster.local:6379"
+    - name: redisPassword
+      value: ""
+    - name: consumerID
+      value: "todo-app"
+    - name: maxRetry
+      value: "3"
+    - name: processingTimeout
+      value: "60s"
+  scopes:
+    - backend-api
+    - mcp-server
+
+---
+# Subscription: task-events → backend-api
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: task-events-sub
+  namespace: default
+spec:
+  pubsubname: pubsub
+  topic: task-events
+  routes:
+    default: /events/task-events
+    rules:
+      - match: event.type == "task.created"
+        path: /events/task/created
+      - match: event.type == "task.updated"
+        path: /events/task/updated
+      - match: event.type == "task.deleted"
+        path: /events/task/deleted
+      - match: event.type == "task.completed"
+        path: /events/task/completed
+  deadLetterTopic: dead-letters
+scopes:
+  - mcp-server
+
+---
+# Subscription: reminders → backend-api
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: reminders-sub
+  namespace: default
+spec:
+  pubsubname: pubsub
+  topic: reminders
+  routes:
+    default: /events/reminders
+    rules:
+      - match: event.type == "reminder.overdue"
+        path: /events/reminder/overdue
+      - match: event.type == "reminder.due-soon"
+        path: /events/reminder/due-soon
+  deadLetterTopic: dead-letters
+scopes:
+  - backend-api
+
+---
+# Subscription: task-updates → frontend SSE bridge
+apiVersion: dapr.io/v2alpha1
+kind: Subscription
+metadata:
+  name: task-updates-sub
+  namespace: default
+spec:
+  pubsubname: pubsub
+  topic: task-updates
+  routes:
+    default: /events/task-updates
+  deadLetterTopic: dead-letters
+scopes:
+  - backend-api

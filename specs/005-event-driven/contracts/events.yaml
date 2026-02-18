@@ -1,0 +1,101 @@
+# Event Contracts — Event-Driven Todo System
+# Defines the event schemas published/consumed via Dapr pub/sub
+
+---
+# Topic: task-events
+# Publisher: backend-api
+# Subscribers: notification-svc, mcp-server, backend-api (recurring handler)
+
+task-events:
+  - type: task.created
+    source: backend-api
+    data:
+      event_type: created
+      task_id: { type: string, format: uuid }
+      user_id: { type: string }
+      task: { $ref: "#/schemas/TaskSnapshot" }
+      changed_fields: null
+
+  - type: task.updated
+    source: backend-api
+    data:
+      event_type: updated
+      task_id: { type: string, format: uuid }
+      user_id: { type: string }
+      task: { $ref: "#/schemas/TaskSnapshot" }
+      changed_fields: { type: object, description: "Map of field → {old, new}" }
+
+  - type: task.deleted
+    source: backend-api
+    data:
+      event_type: deleted
+      task_id: { type: string, format: uuid }
+      user_id: { type: string }
+      task: null
+      changed_fields: null
+
+  - type: task.completed
+    source: backend-api
+    data:
+      event_type: completed
+      task_id: { type: string, format: uuid }
+      user_id: { type: string }
+      task: { $ref: "#/schemas/TaskSnapshot" }
+      changed_fields: { completed: { old: false, new: true } }
+
+---
+# Topic: reminders
+# Publisher: backend-api (via cron binding)
+# Subscriber: notification-service
+
+reminders:
+  - type: reminder.upcoming
+    source: backend-api
+    data:
+      reminder_type: upcoming
+      task_id: { type: string, format: uuid }
+      user_id: { type: string }
+      title: { type: string }
+      due_date: { type: string, format: date-time }
+      link: { type: string }
+
+  - type: reminder.overdue
+    source: backend-api
+    data:
+      reminder_type: overdue
+      task_id: { type: string, format: uuid }
+      user_id: { type: string }
+      title: { type: string }
+      due_date: { type: string, format: date-time }
+      link: { type: string }
+
+---
+# Topic: task-updates
+# Publisher: backend-api
+# Subscriber: sse-gateway
+
+task-updates:
+  - type: sync.task-changed
+    source: backend-api
+    data:
+      change_type: { type: string, enum: [created, updated, deleted, completed] }
+      task_id: { type: string, format: uuid }
+      user_id: { type: string }
+      changed_fields: { type: array, items: string }
+      timestamp: { type: string, format: date-time }
+
+---
+schemas:
+  TaskSnapshot:
+    type: object
+    properties:
+      id: { type: string, format: uuid }
+      title: { type: string }
+      description: { type: string, nullable: true }
+      completed: { type: boolean }
+      priority: { type: string, enum: [high, medium, low] }
+      tags: { type: array, items: string }
+      due_date: { type: string, format: date-time, nullable: true }
+      recurrence_pattern: { type: object, nullable: true }
+      created_at: { type: string, format: date-time }
+      updated_at: { type: string, format: date-time }

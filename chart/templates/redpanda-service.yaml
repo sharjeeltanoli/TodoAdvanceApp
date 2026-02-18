@@ -1,0 +1,32 @@
+{{- if .Values.redpanda.enabled }}
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ include "todo-app.fullname" . }}-redpanda
+  labels:
+    {{- include "todo-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redpanda
+spec:
+  type: ClusterIP
+  clusterIP: None
+  ports:
+    - name: kafka
+      port: 9092
+      targetPort: kafka
+      protocol: TCP
+    - name: kafka-ext
+      port: 9093
+      targetPort: kafka-ext
+      protocol: TCP
+    - name: admin
+      port: 9644
+      targetPort: admin
+      protocol: TCP
+    - name: pandaproxy
+      port: 8082
+      targetPort: pandaproxy
+      protocol: TCP
+  selector:
+    {{- include "todo-app.selectorLabels" . | nindent 4 }}
+    app.kubernetes.io/component: redpanda
+{{- end }}

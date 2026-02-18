@@ -1,0 +1,69 @@
+{{- if .Values.redpanda.enabled }}
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: {{ include "todo-app.fullname" . }}-redpanda
+  labels:
+    {{- include "todo-app.labels" . | nindent 4 }}
+    app.kubernetes.io/component: redpanda
+spec:
+  serviceName: {{ include "todo-app.fullname" . }}-redpanda
+  replicas: 1
+  selector:
+    matchLabels:
+      {{- include "todo-app.selectorLabels" . | nindent 6 }}
+      app.kubernetes.io/component: redpanda
+  template:
+    metadata:
+      labels:
+        {{- include "todo-app.selectorLabels" . | nindent 8 }}
+        app.kubernetes.io/component: redpanda
+    spec:
+      containers:
+        - name: redpanda
+          image: "{{ .Values.redpanda.image.repository }}:{{ .Values.redpanda.image.tag }}"
+          imagePullPolicy: {{ .Values.global.imagePullPolicy }}
+          args:
+            - redpanda
+            - start
+            - --smp=1
+            - --memory={{ .Values.redpanda.resources.limits.memory }}
+            - --overprovisioned
+            - --node-id=0
+            - --kafka-addr=PLAINTEXT://0.0.0.0:9092,EXTERNAL://0.0.0.0:9093
+            - --advertise-kafka-addr=PLAINTEXT://{{ include "todo-app.fullname" . }}-redpanda-0.{{ include "todo-app.fullname" . }}-redpanda:9092,EXTERNAL://{{ include "todo-app.fullname" . }}-redpanda-0.{{ include "todo-app.fullname" . }}-redpanda:9093
+            - --pandaproxy-addr=0.0.0.0:8082
+            - --advertise-pandaproxy-addr={{ include "todo-app.fullname" . }}-redpanda-0.{{ include "todo-app.fullname" . }}-redpanda:8082
+          ports:
+            - name: kafka
+              containerPort: 9092
+              protocol: TCP
+            - name: kafka-ext
+              containerPort: 9093
+              protocol: TCP
+            - name: admin
+              containerPort: 9644
+              protocol: TCP
+            - name: pandaproxy
+              containerPort: 8082
+              protocol: TCP
+          resources:
+            {{- toYaml .Values.redpanda.resources | nindent 12 }}
+          volumeMounts:
+            - name: data
+              mountPath: /var/lib/redpanda/data
+          readinessProbe:
+            httpGet:
+              path: /v1/status/ready
+              port: admin
+            initialDelaySeconds: 10
+            periodSeconds: 10
+  volumeClaimTemplates:
+    - metadata:
+        name: data
+      spec:
+        accessModes: ["ReadWriteOnce"]
+        resources:
+          requests:
+            storage: {{ .Values.redpanda.storage.size }}
+{{- end }}
