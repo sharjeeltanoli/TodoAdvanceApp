@@ -22,6 +22,7 @@ spec:
         {{- include "todo-app.selectorLabels" . | nindent 8 }}
         app.kubernetes.io/component: frontend
     spec:
+      {{- include "todo-app.imagePullSecrets" . | nindent 6 }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 1001
@@ -29,7 +30,7 @@ spec:
         fsGroup: 1001
       containers:
         - name: frontend
-          image: "{{ .Values.frontend.image.repository }}:{{ .Values.frontend.image.tag }}"
+          image: "{{ .Values.frontend.image.repository }}:{{ include "todo-app.imageTag" . }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - name: http
@@ -39,7 +40,7 @@ spec:
             - configMapRef:
                 name: {{ include "todo-app.fullname" . }}-config
             - secretRef:
-                name: {{ include "todo-app.fullname" . }}-secret
+                name: {{ include "todo-app.secretName" . }}
           startupProbe:
             httpGet:
               path: /api/health

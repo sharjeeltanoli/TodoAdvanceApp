@@ -1,0 +1,12 @@
+apiVersion: dapr.io/v1alpha1
+kind: Configuration
+metadata:
+  name: appconfig
+spec:
+  tracing:
+    samplingRate: "0"     # Disabled — no Jaeger/Zipkin in hackathon cluster
+  metric:
+    enabled: true
+  logging:
+    apiLogging:
+      enabled: true

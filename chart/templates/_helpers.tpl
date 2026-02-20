@@ -59,3 +59,31 @@ Component-specific fullnames
 {{- define "todo-app.mcp.fullname" -}}
 {{- printf "%s-mcp" (include "todo-app.fullname" .) | trunc 63 | trimSuffix "-" }}
 {{- end }}
+
+{{/*
+imagePullSecrets block — emits nothing when list is empty (local dev)
+*/}}
+{{- define "todo-app.imagePullSecrets" -}}
+{{- with .Values.global.imagePullSecrets }}
+imagePullSecrets:
+  {{- toYaml . | nindent 2 }}
+{{- end }}
+{{- end }}
+
+{{/*
+Effective secret name — uses existingSecretName when set (cloud), otherwise chart-managed
+*/}}
+{{- define "todo-app.secretName" -}}
+{{- if .Values.secrets.existingSecretName -}}
+{{ .Values.secrets.existingSecretName }}
+{{- else -}}
+{{ include "todo-app.fullname" . }}-secret
+{{- end }}
+{{- end }}
+
+{{/*
+Effective image tag — global.imageTag overrides per-service .image.tag (set by CI)
+*/}}
+{{- define "todo-app.imageTag" -}}
+{{- .Values.global.imageTag | default "latest" }}
+{{- end }}

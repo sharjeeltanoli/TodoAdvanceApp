@@ -1,5 +1,8 @@
 {{- if .Values.dapr.enabled }}
 # Pub/Sub Component (Redpanda/Kafka)
+# Supports two auth modes via dapr.pubsub.authType:
+#   - "none"  → local dev (in-cluster Redpanda, no auth)
+#   - "scram" → cloud (Redpanda Cloud, SASL/SCRAM-SHA-256 via K8s secret)
 apiVersion: dapr.io/v1alpha1
 kind: Component
 metadata:
@@ -8,14 +11,35 @@ spec:
   type: pubsub.kafka
   version: v1
   metadata:
+    {{- if eq .Values.dapr.pubsub.authType "scram" }}
+    - name: brokers
+      secretKeyRef:
+        name: app-secrets
+        key: REDPANDA_BROKERS
+    - name: authType
+      value: "scram"
+    - name: scramSHA256AuthEnabled
+      value: "true"
+    - name: saslUsername
+      secretKeyRef:
+        name: app-secrets
+        key: REDPANDA_USERNAME
+    - name: saslPassword
+      secretKeyRef:
+        name: app-secrets
+        key: REDPANDA_PASSWORD
+    - name: disableTls
+      value: "false"
+    {{- else }}
     - name: brokers
       value: {{ .Values.dapr.pubsub.brokers | quote }}
     - name: consumerGroup
       value: "{appID}-group"
     - name: authType
-      value: {{ .Values.dapr.pubsub.authType | quote }}
+      value: "none"
     - name: disableTls
       value: {{ .Values.dapr.pubsub.disableTls | quote }}
+    {{- end }}
     - name: maxMessageBytes
       value: "1048576"
     - name: consumeRetryInterval
@@ -24,6 +48,8 @@ spec:
       value: "2.0.0"
     - name: allowedTopics
       value: "task-events,reminders,task-updates"
+  auth:
+    secretStore: kubernetes
   scopes:
     - backend-api
     - notification-svc
@@ -88,8 +114,10 @@ spec:
     enabled: {{ .Values.dapr.mtls.enabled }}
   tracing:
     samplingRate: {{ .Values.dapr.tracing.samplingRate | quote }}
+    {{- if .Values.dapr.tracing.zipkin.enabled }}
     zipkin:
-      endpointAddress: {{ .Values.dapr.tracing.endpointAddress | quote }}
+      endpointAddress: {{ .Values.dapr.tracing.endpointAddress | default "" | quote }}
+    {{- end }}
   metric:
     enabled: {{ .Values.dapr.metrics.enabled }}
   logging:

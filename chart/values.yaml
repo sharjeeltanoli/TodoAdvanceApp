@@ -2,6 +2,13 @@
 
 global:
   imagePullPolicy: IfNotPresent
+  # imageTag overrides all service image tags — set by CI via --set global.imageTag=sha-xxxx
+  imageTag: "latest"
+  # imagePullSecrets for private registries (GHCR in cloud environments)
+  imagePullSecrets: []
+  # Example for cloud:
+  # imagePullSecrets:
+  #   - name: ghcr-pull-secret
 
 # --- Frontend (Next.js) ---
 frontend:
@@ -70,8 +77,12 @@ config:
   openaiBaseUrl: "https://openrouter.ai/api/v1"
 
 # --- Secrets (sensitive → K8s Secret) ---
-# MUST be set via --set or a local values override file
+# Two modes:
+#   Local dev: set values below — chart creates a K8s Secret from them
+#   Cloud:     set existingSecretName: "app-secrets" — chart skips creation,
+#              deployments reference the pre-created secret by that name
 secrets:
+  existingSecretName: ""   # If set, skip chart-managed secret creation
   databaseUrl: ""
   betterAuthSecret: ""
   openaiApiKey: ""
@@ -143,10 +154,23 @@ redis:
       cpu: 200m
       memory: 128Mi
 
+# --- HPA (Horizontal Pod Autoscaler) ---
+# Set hpa.enabled: true in environment values files to activate HPA for each service.
+# Per-service hpa settings (minReplicas, maxReplicas, cpuTargetPercent) live in
+# values-staging.yaml and values-production.yaml.
+hpa:
+  enabled: false
+
+# --- Monitoring (ServiceMonitors + alerting rules for kube-prometheus-stack) ---
+monitoring:
+  enabled: false
+
 # --- Dapr Configuration ---
 dapr:
   enabled: true
   pubsub:
+    # authType: "none" for local dev (in-cluster Redpanda, no auth)
+    # authType: "scram" for cloud (Redpanda Cloud, credentials from app-secrets)
     brokers: "todo-app-redpanda-0.todo-app-redpanda:9093"
     authType: "none"
     disableTls: "true"
@@ -157,7 +181,10 @@ dapr:
     enabled: true
   tracing:
     samplingRate: "1"
-    endpointAddress: "http://jaeger-collector.monitoring.svc.cluster.local:9411/api/v2/spans"
+    zipkin:
+      # enabled: false disables Zipkin export (use when no Jaeger/Zipkin is installed)
+      enabled: false
+    endpointAddress: ""  # Set to Jaeger/Zipkin collector URL if zipkin.enabled is true
   metrics:
     enabled: true
 

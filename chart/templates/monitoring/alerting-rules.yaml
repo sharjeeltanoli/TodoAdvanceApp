@@ -1,0 +1,53 @@
+{{- if .Values.monitoring.enabled }}
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: {{ include "todo-app.fullname" . }}-alerts
+  labels:
+    {{- include "todo-app.labels" . | nindent 4 }}
+    release: monitoring    # matches kube-prometheus-stack ruleSelector
+spec:
+  groups:
+    - name: todo-app.availability
+      rules:
+        # Fires when 5xx error rate exceeds 5% for 5 continuous minutes (FR-020, SC-004)
+        - alert: HighErrorRate
+          expr: |
+            rate(http_requests_total{status=~"5..",namespace="{{ .Release.Namespace }}"}[5m])
+            / rate(http_requests_total{namespace="{{ .Release.Namespace }}"}[5m]) > 0.05
+          for: 5m
+          labels:
+            severity: warning
+            namespace: "{{ .Release.Namespace }}"
+          annotations:
+            summary: "High HTTP 5xx error rate in {{ .Release.Namespace }}"
+            description: "Error rate is {{ "{{" }} $value | humanizePercentage {{ "}}" }} over last 5 minutes."
+            runbook: "https://github.com/<OWNER>/hackathon-todo/blob/main/docs/runbooks/deploy.md"
+
+        # Fires when 5xx error rate exceeds 15% for 2 continuous minutes (critical)
+        - alert: CriticalErrorRate
+          expr: |
+            rate(http_requests_total{status=~"5..",namespace="{{ .Release.Namespace }}"}[5m])
+            / rate(http_requests_total{namespace="{{ .Release.Namespace }}"}[5m]) > 0.15
+          for: 2m
+          labels:
+            severity: critical
+            namespace: "{{ .Release.Namespace }}"
+          annotations:
+            summary: "CRITICAL HTTP 5xx error rate in {{ .Release.Namespace }}"
+            description: "Error rate is {{ "{{" }} $value | humanizePercentage {{ "}}" }} — immediate action required."
+            runbook: "https://github.com/<OWNER>/hackathon-todo/blob/main/docs/runbooks/rollback.md"
+
+        # Fires when a pod is restarting more than once every 5 minutes (crash loop)
+        - alert: PodCrashLooping
+          expr: |
+            rate(kube_pod_container_status_restarts_total{namespace="{{ .Release.Namespace }}"}[15m]) > 0.2
+          for: 5m
+          labels:
+            severity: critical
+            namespace: "{{ .Release.Namespace }}"
+          annotations:
+            summary: "Pod crash-looping in {{ .Release.Namespace }}"
+            description: "Pod {{ "{{" }} $labels.pod {{ "}}" }} is restarting frequently."
+            runbook: "https://github.com/<OWNER>/hackathon-todo/blob/main/docs/runbooks/deploy.md"
+{{- end }}

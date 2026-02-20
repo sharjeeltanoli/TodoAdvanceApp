@@ -1,0 +1,136 @@
+# chart/values-staging.yaml
+# Staging environment overrides for DigitalOcean DOKS
+# Replace <OWNER> with your GitHub username/org before deploying.
+# Secrets are NOT managed here — create app-secrets manually via T013.
+
+global:
+  imagePullPolicy: Always
+  imageTag: "main-latest"   # Overridden by CI: --set global.imageTag=sha-<sha>
+  imagePullSecrets:
+    - name: ghcr-pull-secret
+
+# ── Services ──────────────────────────────────────────────────────────────
+
+frontend:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/<OWNER>/hackathon-todo/frontend
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+
+backend:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/<OWNER>/hackathon-todo/backend
+  resources:
+    requests:
+      cpu: 100m
+      memory: 256Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  hpa:
+    minReplicas: 1
+    maxReplicas: 2
+    cpuTargetPercent: 70
+
+mcp:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/<OWNER>/hackathon-todo/mcp
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+notification:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/<OWNER>/hackathon-todo/notification
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+sseGateway:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/<OWNER>/hackathon-todo/sse-gateway
+  resources:
+    requests:
+      cpu: 50m
+      memory: 64Mi
+    limits:
+      cpu: 250m
+      memory: 256Mi
+
+# ── In-cluster components (disabled in cloud — use external services) ──────
+
+redpanda:
+  enabled: false   # Using Redpanda Cloud, not in-cluster Redpanda
+
+redis:
+  enabled: true    # In-cluster Redis for Dapr state store
+
+# ── Application configuration ─────────────────────────────────────────────
+
+config:
+  logLevel: "info"
+  debug: "false"
+  corsOrigins: "https://staging.todo.<DOMAIN>"
+  betterAuthUrl: "https://staging.todo.<DOMAIN>"
+  mcpServerUrl: "http://todo-app-staging-mcp:8001/mcp"
+  mcpServerPort: "8001"
+  backendUrl: "http://todo-app-staging-backend:8000"
+  openaiBaseUrl: "https://openrouter.ai/api/v1"
+
+# Use pre-created app-secrets (created by T013 operator steps)
+secrets:
+  existingSecretName: "app-secrets"
+
+# ── Ingress (TLS via cert-manager + Let's Encrypt) ────────────────────────
+
+ingress:
+  enabled: true
+  className: nginx
+  host: "staging.todo.<DOMAIN>"
+
+# ── HPA (disabled in staging — fixed replica count) ──────────────────────
+
+hpa:
+  enabled: false
+
+# ── Monitoring (no per-namespace ServiceMonitors in staging) ─────────────
+
+monitoring:
+  enabled: false
+
+# ── Dapr (mTLS on, tracing disabled — no Jaeger in hackathon cluster) ────
+
+dapr:
+  enabled: true
+  pubsub:
+    authType: "scram"           # Use SASL/SCRAM for Redpanda Cloud
+    disableTls: "false"         # TLS required for Redpanda Cloud
+  statestore:
+    redisHost: "todo-app-staging-redis:6379"
+  cronSchedule: "@every 5m"
+  mtls:
+    enabled: true
+  tracing:
+    samplingRate: "0"           # Disabled — no Jaeger/Zipkin in cluster
+    zipkin:
+      enabled: false
+  metrics:
+    enabled: true
