@@ -220,6 +220,8 @@ See `.specify/memory/constitution.md` for code quality, testing, performance, se
 - Neon Serverless PostgreSQL (shared), Alembic for migrations (004-advanced-features)
 - Python 3.13 (backend, notification service, SSE gateway), TypeScript 5.x (frontend) + FastAPI 0.115.8, Dapr SDK (HTTP API via httpx), Redpanda (Kafka-compatible), Next.js 16 (005-event-driven)
 - Neon Serverless PostgreSQL (shared — adds `task_event`, `notification`, `processed_event` tables), Redis (Dapr state store for caching) (005-event-driven)
+- TypeScript 5.x (frontend: Next.js 16), Python 3.13 (backend, MCP, notification, SSE gateway) + GitHub Actions, Helm 3.x, DOKS k8s 1.31+, Dapr 1.13.x, cert-manager 1.14.x, ingress-nginx 4.x, kube-prometheus-stack 58.x, Loki 6.x (006-cloud-deployment)
+- Neon Serverless PostgreSQL (external, shared), Redis 7 (in-cluster, Dapr state store) (006-cloud-deployment)
 
 ## Recent Changes
 - 001-todo-crud: Added TypeScript 5.x (frontend), Python 3.13 (backend) + Next.js 16, Better Auth, Tailwind CSS 4, FastAPI, SQLModel, Alembic, asyncpg
