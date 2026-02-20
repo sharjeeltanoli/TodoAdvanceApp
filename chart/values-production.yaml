@@ -1,0 +1,152 @@
+# chart/values-production.yaml
+# Production environment overrides for DigitalOcean DOKS
+# Replace <OWNER> with your GitHub username/org before deploying.
+# Secrets are NOT managed here — create app-secrets manually via T013.
+
+global:
+  imagePullPolicy: Always
+  imageTag: "main-latest"   # Overridden by CI: --set global.imageTag=v<semver>
+  imagePullSecrets:
+    - name: ghcr-pull-secret
+
+# ── Services ──────────────────────────────────────────────────────────────
+
+frontend:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/<OWNER>/hackathon-todo/frontend
+  resources:
+    requests:
+      cpu: 200m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  hpa:
+    minReplicas: 2
+    maxReplicas: 4
+    cpuTargetPercent: 80
+
+backend:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/<OWNER>/hackathon-todo/backend
+  resources:
+    requests:
+      cpu: 250m
+      memory: 256Mi
+    limits:
+      cpu: 1000m
+      memory: 1Gi
+  hpa:
+    minReplicas: 2
+    maxReplicas: 6
+    cpuTargetPercent: 70
+
+mcp:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/<OWNER>/hackathon-todo/mcp
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  hpa:
+    minReplicas: 1
+    maxReplicas: 2
+    cpuTargetPercent: 80
+
+notification:
+  replicaCount: 1
+  image:
+    repository: ghcr.io/<OWNER>/hackathon-todo/notification
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 256Mi
+  hpa:
+    minReplicas: 1
+    maxReplicas: 3
+    cpuTargetPercent: 70
+
+sseGateway:
+  replicaCount: 2
+  image:
+    repository: ghcr.io/<OWNER>/hackathon-todo/sse-gateway
+  resources:
+    requests:
+      cpu: 100m
+      memory: 128Mi
+    limits:
+      cpu: 500m
+      memory: 512Mi
+  hpa:
+    minReplicas: 2
+    maxReplicas: 4
+    cpuTargetPercent: 70
+
+# ── In-cluster components (disabled in cloud — use external services) ──────
+
+redpanda:
+  enabled: false   # Using Redpanda Cloud, not in-cluster Redpanda
+
+redis:
+  enabled: true    # In-cluster Redis for Dapr state store
+
+# ── Application configuration ─────────────────────────────────────────────
+
+config:
+  logLevel: "info"
+  debug: "false"
+  corsOrigins: "https://todo.<DOMAIN>"
+  betterAuthUrl: "https://todo.<DOMAIN>"
+  mcpServerUrl: "http://todo-app-mcp:8001/mcp"
+  mcpServerPort: "8001"
+  backendUrl: "http://todo-app-backend:8000"
+  openaiBaseUrl: "https://openrouter.ai/api/v1"
+
+# Use pre-created app-secrets (created by T013 operator steps)
+secrets:
+  existingSecretName: "app-secrets"
+
+# ── Ingress (TLS via cert-manager + Let's Encrypt) ────────────────────────
+
+ingress:
+  enabled: true
+  className: nginx
+  host: "todo.<DOMAIN>"
+
+# ── HPA (enabled for all 5 services in production) ───────────────────────
+
+hpa:
+  enabled: true
+
+# ── Monitoring (ServiceMonitors + alerting rules) ─────────────────────────
+
+monitoring:
+  enabled: true
+
+# ── Dapr (mTLS on, tracing disabled — no Jaeger in hackathon cluster) ────
+
+dapr:
+  enabled: true
+  pubsub:
+    authType: "scram"           # Use SASL/SCRAM for Redpanda Cloud
+    disableTls: "false"         # TLS required for Redpanda Cloud
+  statestore:
+    redisHost: "todo-app-redis:6379"
+  cronSchedule: "@every 5m"
+  mtls:
+    enabled: true
+  tracing:
+    samplingRate: "0"           # Disabled — no Jaeger/Zipkin in cluster
+    zipkin:
+      enabled: false
+  metrics:
+    enabled: true

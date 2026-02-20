@@ -37,6 +37,7 @@ spec:
         dapr.io/sidecar-memory-limit: "256Mi"
       {{- end }}
     spec:
+      {{- include "todo-app.imagePullSecrets" . | nindent 6 }}
       securityContext:
         runAsNonRoot: true
         runAsUser: 1001
@@ -44,7 +45,7 @@ spec:
         fsGroup: 1001
       containers:
         - name: mcp
-          image: "{{ .Values.mcp.image.repository }}:{{ .Values.mcp.image.tag }}"
+          image: "{{ .Values.mcp.image.repository }}:{{ include "todo-app.imageTag" . }}"
           imagePullPolicy: {{ .Values.global.imagePullPolicy }}
           ports:
             - name: http
@@ -54,7 +55,7 @@ spec:
             - configMapRef:
                 name: {{ include "todo-app.fullname" . }}-config
             - secretRef:
-                name: {{ include "todo-app.fullname" . }}-secret
+                name: {{ include "todo-app.secretName" . }}
           startupProbe:
             httpGet:
               path: /health
