@@ -99,8 +99,9 @@ def upgrade() -> None:
         ["user_id", "due_date"],
         postgresql_where=sa.text("due_date IS NOT NULL"),
     )
+    # JSON type has no default GIN operator class; cast to jsonb for indexing
     op.execute(
-        "CREATE INDEX ix_task_tags_gin ON task USING GIN (tags)"
+        "CREATE INDEX ix_task_tags_gin ON task USING GIN ((tags::jsonb))"
     )
 
 

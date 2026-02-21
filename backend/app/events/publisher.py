@@ -12,6 +12,7 @@ import httpx
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
+from app.database import async_session
 from app.events.schemas import TaskEventData, TaskUpdateData, task_to_snapshot
 from app.models import TaskEvent, ProcessedEvent
 
@@ -87,7 +88,8 @@ async def publish_task_event(
     task_snapshot = task_to_snapshot(task) if event_type != "deleted" else None
     task_id_str = str(task.id)
 
-    # 1. Persist to task_event table (audit trail)
+    # 1. Persist to task_event table using a fresh session (the caller's session
+    #    may already be closed since this runs as a background task).
     task_event = TaskEvent(
         event_type=event_type,
         task_id=task.id,
@@ -97,8 +99,12 @@ async def publish_task_event(
         changed_fields=changed_fields,
         event_source="api",
     )
-    db.add(task_event)
-    await db.commit()
+    try:
+        async with async_session() as bg_db:
+            bg_db.add(task_event)
+            await bg_db.commit()
+    except Exception:
+        logger.error("Failed to persist task event", exc_info=True)
 
     # 2. Publish to task-events (full event for processing)
     task_event_data = TaskEventData(

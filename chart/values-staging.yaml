@@ -89,7 +89,7 @@ config:
   logLevel: "info"
   debug: "false"
   corsOrigins: "https://todo-staging.165-245-153-207.nip.io"
-  betterAuthUrl: "https://todo-staging.165-245-153-207.nip.io"
+  betterAuthUrl: "http://todo-app-staging-frontend:3000"
   mcpServerUrl: "http://todo-app-staging-mcp:8001/mcp"
   mcpServerPort: "8001"
   backendUrl: "http://todo-app-staging-backend:8000"
