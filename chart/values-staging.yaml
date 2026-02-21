@@ -14,7 +14,7 @@ global:
 frontend:
   replicaCount: 1
   image:
-    repository: ghcr.io/<OWNER>/hackathon-todo/frontend
+    repository: ghcr.io/sharjeeltanoli/hackathon-todo/frontend
   resources:
     requests:
       cpu: 100m
@@ -26,7 +26,7 @@ frontend:
 backend:
   replicaCount: 1
   image:
-    repository: ghcr.io/<OWNER>/hackathon-todo/backend
+    repository: ghcr.io/sharjeeltanoli/hackathon-todo/backend
   resources:
     requests:
       cpu: 100m
@@ -42,7 +42,7 @@ backend:
 mcp:
   replicaCount: 1
   image:
-    repository: ghcr.io/<OWNER>/hackathon-todo/mcp
+    repository: ghcr.io/sharjeeltanoli/hackathon-todo/mcp
   resources:
     requests:
       cpu: 50m
@@ -54,7 +54,7 @@ mcp:
 notification:
   replicaCount: 1
   image:
-    repository: ghcr.io/<OWNER>/hackathon-todo/notification
+    repository: ghcr.io/sharjeeltanoli/hackathon-todo/notification
   resources:
     requests:
       cpu: 50m
@@ -66,7 +66,7 @@ notification:
 sseGateway:
   replicaCount: 1
   image:
-    repository: ghcr.io/<OWNER>/hackathon-todo/sse-gateway
+    repository: ghcr.io/sharjeeltanoli/hackathon-todo/sse-gateway
   resources:
     requests:
       cpu: 50m
@@ -88,8 +88,8 @@ redis:
 config:
   logLevel: "info"
   debug: "false"
-  corsOrigins: "https://staging.todo.<DOMAIN>"
-  betterAuthUrl: "https://staging.todo.<DOMAIN>"
+  corsOrigins: "https://todo-staging.165-245-153-207.nip.io"
+  betterAuthUrl: "https://todo-staging.165-245-153-207.nip.io"
   mcpServerUrl: "http://todo-app-staging-mcp:8001/mcp"
   mcpServerPort: "8001"
   backendUrl: "http://todo-app-staging-backend:8000"
@@ -104,7 +104,8 @@ secrets:
 ingress:
   enabled: true
   className: nginx
-  host: "staging.todo.<DOMAIN>"
+  host: "todo-staging.165-245-153-207.nip.io"
+  certIssuer: "letsencrypt-staging"   # Use staging ACME to avoid rate limits; switch to letsencrypt-prod for final
 
 # ── HPA (disabled in staging — fixed replica count) ──────────────────────
 

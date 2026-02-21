@@ -8,7 +8,7 @@ metadata:
   annotations:
     # TLS — cert-manager issues Let's Encrypt cert automatically (cloud environments)
     # Remove cert-manager annotation for local dev (no cert-manager installed)
-    cert-manager.io/cluster-issuer: "letsencrypt-prod"
+    cert-manager.io/cluster-issuer: {{ .Values.ingress.certIssuer | default "letsencrypt-prod" | quote }}
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
     nginx.ingress.kubernetes.io/proxy-body-size: "10m"
