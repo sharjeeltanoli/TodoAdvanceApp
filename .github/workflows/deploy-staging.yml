@@ -27,7 +27,7 @@ jobs:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
 
       - name: Save kubeconfig
-        run: doctl kubernetes cluster kubeconfig save hackathon-todo
+        run: doctl kubernetes cluster kubeconfig save todo-app-cluster
 
       - name: Install Helm
         uses: azure/setup-helm@fe7b79cd5ee1e45176fcad797de68ecaf3ca4814 # v4.2.0
