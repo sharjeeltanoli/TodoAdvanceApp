@@ -21,4 +21,7 @@ COPY --chown=appuser:appgroup services/sse_gateway/ ./services/sse_gateway/
 USER appuser
 EXPOSE 8003
 
+# Bare imports in sse_gateway/main.py (e.g. "from connections import ...") need the service dir on path
+ENV PYTHONPATH=/app/services/sse_gateway:/app
+
 CMD ["uvicorn", "services.sse_gateway.main:app", "--host", "0.0.0.0", "--port", "8003"]

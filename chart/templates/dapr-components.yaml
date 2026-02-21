@@ -10,6 +10,7 @@ metadata:
 spec:
   type: pubsub.kafka
   version: v1
+  ignoreErrors: true   # Don't crash sidecar if Redpanda is unreachable/misconfigured
   metadata:
     {{- if eq .Values.dapr.pubsub.authType "scram" }}
     - name: brokers
@@ -17,9 +18,7 @@ spec:
         name: app-secrets
         key: REDPANDA_BROKERS
     - name: authType
-      value: "scram"
-    - name: scramSHA256AuthEnabled
-      value: "true"
+      value: "scramsha256"   # Dapr 1.14+: "scramsha256" (not "scram")
     - name: saslUsername
       secretKeyRef:
         name: app-secrets
@@ -94,24 +93,14 @@ spec:
   scopes:
     - backend-api
 ---
-# Kubernetes Secrets Store
-apiVersion: dapr.io/v1alpha1
-kind: Component
-metadata:
-  name: kubernetes
-spec:
-  type: secretstores.kubernetes
-  version: v1
-  metadata: []
----
 # Dapr Configuration
+# Note: mtls is cluster-wide (set via Dapr control plane install), NOT per-app config.
+# Only tracing, metrics, and logging are valid here.
 apiVersion: dapr.io/v1alpha1
 kind: Configuration
 metadata:
   name: dapr-config
 spec:
-  mtls:
-    enabled: {{ .Values.dapr.mtls.enabled }}
   tracing:
     samplingRate: {{ .Values.dapr.tracing.samplingRate | quote }}
     {{- if .Values.dapr.tracing.zipkin.enabled }}

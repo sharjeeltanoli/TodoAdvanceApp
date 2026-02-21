@@ -21,4 +21,7 @@ COPY --chown=appuser:appgroup services/notification/ ./services/notification/
 USER appuser
 EXPOSE 8002
 
+# Bare imports in notification/main.py (e.g. "from models import ...") need the service dir on path
+ENV PYTHONPATH=/app/services/notification:/app
+
 CMD ["uvicorn", "services.notification.main:app", "--host", "0.0.0.0", "--port", "8002"]
