@@ -10,14 +10,14 @@ jobs:
     environment: production   # Requires manual approval in GitHub → Settings → Environments
 
     steps:
-      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+      - uses: actions/checkout@v4
 
       - name: Set image tag from release
         id: tag
         run: echo "IMAGE_TAG=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
 
       - name: Install doctl
-        uses: digitalocean/action-doctl@53c3f3781a3a9b767d3dda2cf43851a638d94f3b # v2.5.1
+        uses: digitalocean/action-doctl@v2
         with:
           token: ${{ secrets.DIGITALOCEAN_ACCESS_TOKEN }}
 
