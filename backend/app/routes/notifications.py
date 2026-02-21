@@ -3,12 +3,18 @@
 from __future__ import annotations
 
 import logging
+from datetime import datetime, timedelta, timezone
 from typing import Optional
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, Query
+from sqlalchemy import func, select
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import Session
 
+from app.database import get_session
 from app.dependencies import get_current_user
+from app.models import Task
 
 logger = logging.getLogger(__name__)
 
@@ -83,9 +89,17 @@ async def mark_all_read(
 @router.get("/unread-count")
 async def unread_count(
     user_id: str = Depends(get_current_user),
+    db: AsyncSession = Depends(get_session),
 ):
-    """Get unread notification count (proxied to notification-svc)."""
-    return await _invoke_notification_svc(
-        "notifications/unread-count",
-        params={"user_id": user_id},
+    """Count tasks with upcoming reminders (due within 24 hours, not yet notified)."""
+    cutoff = datetime.now(timezone.utc) + timedelta(hours=24)
+    result = await db.execute(
+        select(func.count(Task.id)).where(
+            Task.user_id == user_id,
+            Task.due_date <= cutoff,
+            Task.due_date >= datetime.now(timezone.utc),
+            Task.completed == False,
+            Task.reminder_notified_at == None,
+        )
     )
+    return {"count": result.scalar() or 0}

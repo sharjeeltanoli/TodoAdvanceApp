@@ -24,7 +24,8 @@ async def get_current_user(
             detail="Invalid or expired token",
         )
     data = response.json()
-    user_id = data.get("user", {}).get("id")
+    user_id = (data or {}).get("user") or {}
+    user_id = user_id.get("id") if isinstance(user_id, dict) else None
     if not user_id:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
