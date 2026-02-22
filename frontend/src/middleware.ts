@@ -2,7 +2,11 @@ import { NextRequest, NextResponse } from "next/server";
 
 export default function middleware(request: NextRequest) {
   const { pathname } = request.nextUrl;
-  const sessionCookie = request.cookies.get("better-auth.session_token");
+  // Better Auth prefixes cookies with __Secure- when BETTER_AUTH_URL starts with https://
+  // Check both forms so middleware works in both HTTP (local) and HTTPS (staging/prod) environments
+  const sessionCookie =
+    request.cookies.get("__Secure-better-auth.session_token") ||
+    request.cookies.get("better-auth.session_token");
 
   // Public routes - allow access
   const publicRoutes = ["/login", "/signup"];
