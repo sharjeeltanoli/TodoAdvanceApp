@@ -4,6 +4,9 @@ from pydantic_settings import BaseSettings
 class Settings(BaseSettings):
     DATABASE_URL: str
     BETTER_AUTH_URL: str = "http://localhost:3000"
+    # In-cluster HTTP URL for backend→Better Auth calls (avoids TLS issues with staging certs).
+    # When set, overrides BETTER_AUTH_URL for server-to-server token validation only.
+    BACKEND_BETTER_AUTH_URL: str = ""
     CORS_ORIGINS: str = "http://localhost:3000"
     DEBUG: bool = False
     OPENAI_API_KEY: str = ""

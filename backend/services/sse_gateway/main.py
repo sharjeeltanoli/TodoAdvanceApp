@@ -19,7 +19,12 @@ logger = logging.getLogger(__name__)
 
 class Settings(BaseSettings):
     BETTER_AUTH_URL: str = "http://todo-app-frontend:3000"
+    # In-cluster HTTP URL for token validation — avoids TLS issues with staging certs.
+    BACKEND_BETTER_AUTH_URL: str = ""
     model_config = {"env_file": ".env"}
+
+    def auth_base_url(self) -> str:
+        return self.BACKEND_BETTER_AUTH_URL or self.BETTER_AUTH_URL
 
 
 settings = Settings()
@@ -130,7 +135,7 @@ async def _validate_token(token: str) -> str | None:
     try:
         async with httpx.AsyncClient(timeout=5.0) as client:
             resp = await client.get(
-                f"{settings.BETTER_AUTH_URL}/api/auth/get-session",
+                f"{settings.auth_base_url()}/api/auth/get-session",
                 headers={"Authorization": f"Bearer {token}"},
             )
             if resp.status_code == 200:

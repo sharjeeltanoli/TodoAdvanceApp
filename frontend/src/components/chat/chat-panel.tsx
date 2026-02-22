@@ -4,8 +4,9 @@ import { ChatKit, useChatKit } from "@openai/chatkit-react";
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
-const BACKEND_URL =
-  process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+// Use NEXT_PUBLIC_BACKEND_URL if set (local dev); otherwise use relative URLs
+// so the ingress routes /chatkit to the backend service in staging/production.
+const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "";
 
 export function ChatPanel() {
   const [token, setToken] = useState<string | null>(null);
