@@ -12,7 +12,7 @@ global:
 # ── Services ──────────────────────────────────────────────────────────────
 
 frontend:
-  replicaCount: 2
+  replicaCount: 1
   image:
     repository: ghcr.io/sharjeeltanoli/hackathon-todo/frontend
   service:
@@ -30,7 +30,7 @@ frontend:
     cpuTargetPercent: 80
 
 backend:
-  replicaCount: 2
+  replicaCount: 1
   image:
     repository: ghcr.io/sharjeeltanoli/hackathon-todo/backend
   resources:
@@ -78,7 +78,7 @@ notification:
     cpuTargetPercent: 70
 
 sseGateway:
-  replicaCount: 2
+  replicaCount: 1
   image:
     repository: ghcr.io/sharjeeltanoli/hackathon-todo/sse-gateway
   resources:

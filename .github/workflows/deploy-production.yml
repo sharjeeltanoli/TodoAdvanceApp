@@ -44,6 +44,15 @@ jobs:
         with:
           version: v3.16.3
 
+      - name: Clean up stuck Helm release if any
+        run: |
+          STATUS=$(helm status todo-app -n production -o json 2>/dev/null | jq -r '.info.status' 2>/dev/null || echo "not-found")
+          echo "Current Helm status: $STATUS"
+          if [[ "$STATUS" == "pending-install" || "$STATUS" == "pending-upgrade" || "$STATUS" == "pending-rollback" ]]; then
+            echo "Stuck Helm release detected ($STATUS) — forcing uninstall"
+            helm uninstall todo-app -n production --no-hooks 2>/dev/null || true
+          fi
+
       - name: Helm upgrade production
         run: |
           helm upgrade --install todo-app ./chart \
