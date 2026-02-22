@@ -45,6 +45,17 @@ jobs:
             --timeout 10m \
             --history-max 10
 
+      - name: Debug pod status on failure
+        if: failure()
+        run: |
+          echo "=== Pods ==="
+          kubectl get pods -n production -o wide
+          echo "=== Events (last 40) ==="
+          kubectl get events -n production --sort-by=.lastTimestamp | tail -40
+          echo "=== Describe failing pods ==="
+          kubectl get pods -n production --no-headers | awk '$3 != "Running" && $3 != "Completed" {print $1}' | \
+            xargs -I{} kubectl describe pod {} -n production 2>/dev/null | head -100
+
       - name: Verify production deployment
         run: |
           kubectl rollout status deployment/todo-app-backend -n production --timeout=8m
