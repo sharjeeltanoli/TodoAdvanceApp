@@ -132,7 +132,7 @@ hpa:
 # ── Monitoring (ServiceMonitors + alerting rules) ─────────────────────────
 
 monitoring:
-  enabled: true
+  enabled: false   # Disabled until kube-prometheus-stack CRDs are installed
 
 # ── Dapr (mTLS on, tracing disabled — no Jaeger in hackathon cluster) ────
 
