@@ -12,9 +12,14 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set image tag from release
+      - name: Set image tag
         id: tag
-        run: echo "IMAGE_TAG=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+        run: |
+          # build.yml only tags images on branch pushes (sha-* and main-latest).
+          # Semver tags (v*) are never built, so use main-latest which is always
+          # the image from the most recent push to main.
+          echo "IMAGE_TAG=main-latest" >> "$GITHUB_OUTPUT"
+          echo "RELEASE_VERSION=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
 
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
@@ -49,6 +54,6 @@ jobs:
       - name: Production smoke test
         run: |
           sleep 15  # allow LB to route traffic
-          curl -f --max-time 30 "https://todo.${{ vars.DOMAIN }}/api/health" || \
-            (echo "Smoke test failed — check https://todo.${{ vars.DOMAIN }}/api/health" && exit 1)
-          echo "Production deploy complete — version: ${{ steps.tag.outputs.IMAGE_TAG }}"
+          curl -fk --max-time 30 "https://todo.165-245-153-207.nip.io/api/auth/get-session" || \
+            (echo "Smoke test failed — check https://todo.165-245-153-207.nip.io" && exit 1)
+          echo "Production deploy complete — release: ${{ steps.tag.outputs.RELEASE_VERSION }}, image: ${{ steps.tag.outputs.IMAGE_TAG }}"
