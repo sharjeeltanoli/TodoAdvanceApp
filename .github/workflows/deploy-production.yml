@@ -3,6 +3,12 @@ name: Deploy to Production
 on:
   release:
     types: [published]
+  workflow_dispatch:
+    inputs:
+      image_tag:
+        description: "Image tag to deploy (default: main-latest)"
+        required: false
+        default: "main-latest"
 
 jobs:
   deploy-production:
@@ -18,8 +24,10 @@ jobs:
           # build.yml only tags images on branch pushes (sha-* and main-latest).
           # Semver tags (v*) are never built, so use main-latest which is always
           # the image from the most recent push to main.
-          echo "IMAGE_TAG=main-latest" >> "$GITHUB_OUTPUT"
-          echo "RELEASE_VERSION=${{ github.event.release.tag_name }}" >> "$GITHUB_OUTPUT"
+          # workflow_dispatch can override via image_tag input.
+          IMAGE_TAG="${{ github.event.inputs.image_tag || 'main-latest' }}"
+          echo "IMAGE_TAG=${IMAGE_TAG}" >> "$GITHUB_OUTPUT"
+          echo "RELEASE_VERSION=${{ github.event.release.tag_name || 'manual' }}" >> "$GITHUB_OUTPUT"
 
       - name: Install doctl
         uses: digitalocean/action-doctl@v2
@@ -48,9 +56,10 @@ jobs:
         run: |
           STATUS=$(helm status todo-app -n production -o json 2>/dev/null | jq -r '.info.status' 2>/dev/null || echo "not-found")
           echo "Current Helm status: $STATUS"
-          if [[ "$STATUS" == "pending-install" || "$STATUS" == "pending-upgrade" || "$STATUS" == "pending-rollback" ]]; then
-            echo "Stuck Helm release detected ($STATUS) — forcing uninstall"
+          if [[ "$STATUS" == "pending-install" || "$STATUS" == "pending-upgrade" || "$STATUS" == "pending-rollback" || "$STATUS" == "failed" ]]; then
+            echo "Stuck/failed Helm release detected ($STATUS) — forcing uninstall"
             helm uninstall todo-app -n production --no-hooks 2>/dev/null || true
+            sleep 5
           fi
 
       - name: Helm upgrade production

@@ -19,11 +19,11 @@ frontend:
     type: ClusterIP
   resources:
     requests:
-      cpu: 200m
-      memory: 256Mi
+      cpu: 100m
+      memory: 128Mi
     limits:
-      cpu: 1000m
-      memory: 1Gi
+      cpu: 500m
+      memory: 512Mi
   hpa:
     minReplicas: 2
     maxReplicas: 4
@@ -35,11 +35,11 @@ backend:
     repository: ghcr.io/sharjeeltanoli/hackathon-todo/backend
   resources:
     requests:
-      cpu: 250m
+      cpu: 100m
       memory: 256Mi
     limits:
-      cpu: 1000m
-      memory: 1Gi
+      cpu: 500m
+      memory: 512Mi
   hpa:
     minReplicas: 2
     maxReplicas: 6
@@ -51,11 +51,11 @@ mcp:
     repository: ghcr.io/sharjeeltanoli/hackathon-todo/mcp
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 50m
+      memory: 64Mi
     limits:
-      cpu: 500m
-      memory: 512Mi
+      cpu: 250m
+      memory: 256Mi
   hpa:
     minReplicas: 1
     maxReplicas: 2
@@ -67,10 +67,10 @@ notification:
     repository: ghcr.io/sharjeeltanoli/hackathon-todo/notification
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 50m
+      memory: 64Mi
     limits:
-      cpu: 500m
+      cpu: 250m
       memory: 256Mi
   hpa:
     minReplicas: 1
@@ -83,11 +83,11 @@ sseGateway:
     repository: ghcr.io/sharjeeltanoli/hackathon-todo/sse-gateway
   resources:
     requests:
-      cpu: 100m
-      memory: 128Mi
+      cpu: 50m
+      memory: 64Mi
     limits:
-      cpu: 500m
-      memory: 512Mi
+      cpu: 250m
+      memory: 256Mi
   hpa:
     minReplicas: 2
     maxReplicas: 4
