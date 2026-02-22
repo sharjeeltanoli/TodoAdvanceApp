@@ -15,6 +15,8 @@ frontend:
   replicaCount: 2
   image:
     repository: ghcr.io/sharjeeltanoli/hackathon-todo/frontend
+  service:
+    type: ClusterIP
   resources:
     requests:
       cpu: 200m
