@@ -129,7 +129,7 @@ ingress:
 # ── HPA (enabled for all 5 services in production) ───────────────────────
 
 hpa:
-  enabled: true
+  enabled: false   # Disabled until metrics-server is installed in cluster
 
 # ── Monitoring (ServiceMonitors + alerting rules) ─────────────────────────
 
