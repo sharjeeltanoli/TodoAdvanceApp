@@ -14,8 +14,8 @@ export default function middleware(request: NextRequest) {
     return NextResponse.next();
   }
 
-  // Auth API routes - always allow (Better Auth handles them)
-  if (pathname.startsWith("/api/auth")) {
+  // Auth API routes and health check - always allow
+  if (pathname.startsWith("/api/auth") || pathname === "/api/health") {
     return NextResponse.next();
   }
 
