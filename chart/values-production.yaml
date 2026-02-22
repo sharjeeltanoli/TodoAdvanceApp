@@ -62,36 +62,16 @@ mcp:
     cpuTargetPercent: 80
 
 notification:
+  enabled: false   # Single-node cluster: CPU budget exhausted by staging + system overhead
   replicaCount: 1
   image:
     repository: ghcr.io/sharjeeltanoli/hackathon-todo/notification
-  resources:
-    requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
-      cpu: 250m
-      memory: 256Mi
-  hpa:
-    minReplicas: 1
-    maxReplicas: 3
-    cpuTargetPercent: 70
 
 sseGateway:
+  enabled: false   # Single-node cluster: CPU budget exhausted by staging + system overhead
   replicaCount: 1
   image:
     repository: ghcr.io/sharjeeltanoli/hackathon-todo/sse-gateway
-  resources:
-    requests:
-      cpu: 50m
-      memory: 64Mi
-    limits:
-      cpu: 250m
-      memory: 256Mi
-  hpa:
-    minReplicas: 2
-    maxReplicas: 4
-    cpuTargetPercent: 70
 
 # ── In-cluster components (disabled in cloud — use external services) ──────
 
@@ -99,7 +79,7 @@ redpanda:
   enabled: false   # Using Redpanda Cloud, not in-cluster Redpanda
 
 redis:
-  enabled: true    # In-cluster Redis for Dapr state store
+  enabled: false   # No Dapr in production → Redis not needed
 
 # ── Application configuration ─────────────────────────────────────────────
 
@@ -139,18 +119,5 @@ monitoring:
 # ── Dapr (mTLS on, tracing disabled — no Jaeger in hackathon cluster) ────
 
 dapr:
-  enabled: true
-  pubsub:
-    authType: "scram"           # Use SASL/SCRAM for Redpanda Cloud
-    disableTls: "false"         # TLS required for Redpanda Cloud
-  statestore:
-    redisHost: "todo-app-redis:6379"
-  cronSchedule: "@every 5m"
-  mtls:
-    enabled: true
-  tracing:
-    samplingRate: "0"           # Disabled — no Jaeger/Zipkin in cluster
-    zipkin:
-      enabled: false
-  metrics:
-    enabled: true
+  enabled: false   # Disabled: notification/sse-gateway disabled, no event bus needed
+                   # Single-node cluster cannot schedule Dapr sidecars alongside staging

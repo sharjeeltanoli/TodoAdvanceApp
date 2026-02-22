@@ -88,7 +88,7 @@ jobs:
         run: |
           kubectl rollout status deployment/todo-app-backend -n production --timeout=8m
           kubectl rollout status deployment/todo-app-frontend -n production --timeout=8m
-          kubectl rollout status deployment/todo-app-sse-gateway -n production --timeout=5m
+          # sse-gateway and notification are disabled in production (single-node CPU budget)
 
       - name: Production smoke test
         run: |
