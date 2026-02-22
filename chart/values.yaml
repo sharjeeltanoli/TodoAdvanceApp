@@ -70,6 +70,11 @@ config:
   logLevel: "info"
   debug: "false"
   betterAuthUrl: "http://todo-app-frontend:3000"
+  # Backend calls Better Auth internally (avoids TLS issues with staging certs).
+  # Defaults to betterAuthUrl so local dev works unchanged.
+  backendBetterAuthUrl: ""
+  # Comma-separated list of trusted origins for Better Auth (overrides default derivation from betterAuthUrl)
+  betterAuthTrustedOrigins: ""
   corsOrigins: "http://localhost:30080"
   mcpServerUrl: "http://todo-app-mcp:8001/mcp"
   mcpServerPort: "8001"

@@ -8,6 +8,9 @@ data:
   LOG_LEVEL: {{ .Values.config.logLevel | quote }}
   DEBUG: {{ .Values.config.debug | quote }}
   BETTER_AUTH_URL: {{ .Values.config.betterAuthUrl | quote }}
+  {{- if .Values.config.betterAuthTrustedOrigins }}
+  BETTER_AUTH_TRUSTED_ORIGINS: {{ .Values.config.betterAuthTrustedOrigins | quote }}
+  {{- end }}
   CORS_ORIGINS: {{ .Values.config.corsOrigins | quote }}
   MCP_SERVER_URL: {{ .Values.config.mcpServerUrl | quote }}
   MCP_SERVER_PORT: {{ .Values.config.mcpServerPort | quote }}

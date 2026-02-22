@@ -14,4 +14,7 @@ export const auth = betterAuth({
     enabled: true,
   },
   plugins: [bearer(), jwt()],
+  trustedOrigins: process.env.BETTER_AUTH_TRUSTED_ORIGINS
+    ? process.env.BETTER_AUTH_TRUSTED_ORIGINS.split(",").map((o) => o.trim())
+    : [],
 });

@@ -56,6 +56,11 @@ spec:
                 name: {{ include "todo-app.fullname" . }}-config
             - secretRef:
                 name: {{ include "todo-app.secretName" . }}
+          {{- if .Values.config.backendBetterAuthUrl }}
+          env:
+            - name: BETTER_AUTH_URL
+              value: {{ .Values.config.backendBetterAuthUrl | quote }}
+          {{- end }}
           startupProbe:
             httpGet:
               path: /health
