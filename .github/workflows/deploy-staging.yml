@@ -34,6 +34,16 @@ jobs:
         with:
           version: v3.16.3
 
+      - name: Clean up stuck Helm release if any
+        run: |
+          STATUS=$(helm status todo-app-staging -n staging -o json 2>/dev/null | jq -r '.info.status' 2>/dev/null || echo "not-found")
+          echo "Current Helm status: $STATUS"
+          if [[ "$STATUS" == "pending-install" || "$STATUS" == "pending-upgrade" || "$STATUS" == "pending-rollback" || "$STATUS" == "failed" ]]; then
+            echo "Stuck/failed Helm release detected ($STATUS) — forcing uninstall"
+            helm uninstall todo-app-staging -n staging --no-hooks 2>/dev/null || true
+            sleep 5
+          fi
+
       - name: Helm upgrade staging
         run: |
           helm upgrade --install todo-app-staging ./chart \
@@ -42,7 +52,7 @@ jobs:
             --create-namespace \
             --set global.imageTag=${{ steps.tag.outputs.IMAGE_TAG }} \
             --atomic \
-            --timeout 5m \
+            --timeout 8m \
             --history-max 10
 
       - name: Verify staging deployment
