@@ -466,22 +466,23 @@ async def delete_task(
 
 
 # ===================================================================
-# ASGI app — `uvicorn mcp_server.server:app --host 0.0.0.0 --port 8001`
+# Custom routes registered on the FastMCP app
+# (must be registered before calling mcp.streamable_http_app())
 # ===================================================================
 
-from starlette.applications import Starlette
 from starlette.requests import Request
 from starlette.responses import JSONResponse
-from starlette.routing import Mount, Route
 
 DAPR_BASE = "http://localhost:3500"
 
 
-async def health(request: Request):
+@mcp.custom_route("/health", methods=["GET"])
+async def health(request: Request) -> JSONResponse:
     return JSONResponse({"status": "ok"})
 
 
-async def dapr_subscribe(request: Request):
+@mcp.custom_route("/dapr/subscribe", methods=["GET"])
+async def dapr_subscribe(request: Request) -> JSONResponse:
     """Dapr programmatic subscription — receive task-events for AI context."""
     return JSONResponse([
         {
@@ -492,12 +493,9 @@ async def dapr_subscribe(request: Request):
     ])
 
 
-async def handle_task_event(request: Request):
-    """Cache recent task events in Dapr state store for AI agent context.
-
-    Maintains a rolling window of the last 20 events per user under
-    key `mcp-context:{user_id}` with a 1-hour TTL.
-    """
+@mcp.custom_route("/events/task", methods=["POST"])
+async def handle_task_event(request: Request) -> JSONResponse:
+    """Cache recent task events in Dapr state store for AI agent context."""
     try:
         envelope = await request.json()
         data = envelope.get("data", {})
@@ -508,7 +506,6 @@ async def handle_task_event(request: Request):
 
         state_key = f"mcp-context:{user_id}"
 
-        # Read current cached events from Dapr state store
         cached_events: list[dict] = []
         try:
             async with httpx.AsyncClient(timeout=5) as client:
@@ -520,7 +517,6 @@ async def handle_task_event(request: Request):
         except Exception:
             cached_events = []
 
-        # Append new event summary
         event_summary = {
             "event_type": data.get("event_type", "unknown"),
             "task_id": data.get("task_id"),
@@ -528,11 +524,8 @@ async def handle_task_event(request: Request):
             "task_title": data.get("task", {}).get("title") if data.get("task") else None,
         }
         cached_events.insert(0, event_summary)
-
-        # Keep only last 20 events
         cached_events = cached_events[:20]
 
-        # Save back to Dapr state store with 1-hour TTL
         try:
             async with httpx.AsyncClient(timeout=5) as client:
                 await client.post(
@@ -546,22 +539,20 @@ async def handle_task_event(request: Request):
                     ],
                 )
         except Exception:
-            pass  # Non-critical — state caching is best-effort
+            pass
 
     except Exception:
-        pass  # Never fail event processing
+        pass
 
     return JSONResponse({"status": "SUCCESS"})
 
 
-app = Starlette(
-    routes=[
-        Route("/health", health),
-        Route("/dapr/subscribe", dapr_subscribe),
-        Route("/events/task", handle_task_event, methods=["POST"]),
-        Mount("/mcp", app=mcp.streamable_http_app()),
-    ],
-)
+# ===================================================================
+# ASGI app — `uvicorn mcp_server.server:app --host 0.0.0.0 --port 8001`
+# Custom routes above are included automatically by streamable_http_app()
+# ===================================================================
+
+app = mcp.streamable_http_app()
 
 # ===================================================================
 # Direct entry point — `python -m mcp_server`

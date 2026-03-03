@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 import logging
+import os
 import uuid
 from datetime import datetime
 from typing import Any
@@ -27,13 +28,21 @@ STATE_STORE = "statestore"
 MAX_RETRIES = 3
 RETRY_DELAYS = [1.0, 2.0, 4.0]  # exponential backoff
 
+_DAPR_ENABLED = os.getenv("DAPR_ENABLED", "true").lower() == "true"
+
 
 async def dapr_publish(topic: str, event_type: str, data: dict[str, Any]) -> None:
     """Publish an event to a Dapr pub/sub topic with retry logic.
 
     Retries up to 3 times with exponential backoff (1s, 2s, 4s)
     to guarantee at-least-once delivery (FR-004).
+
+    No-op when DAPR_ENABLED=false (e.g. Render free tier).
     """
+    if not _DAPR_ENABLED:
+        logger.debug("Dapr disabled — skipping publish for topic %s / %s", topic, event_type)
+        return
+
     url = f"{DAPR_BASE_URL}/v1.0/publish/{PUBSUB_NAME}/{topic}"
     payload = data
 

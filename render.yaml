@@ -1,0 +1,57 @@
+services:
+  # ─── Backend API (FastAPI) ─────────────────────────────────────────────────
+  - type: web
+    name: hackathon-todo-backend
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.0
+      # --- Set these in the Render dashboard (sync: false = secret) ---
+      - key: DATABASE_URL
+        sync: false   # Neon PostgreSQL connection string
+      - key: OPENAI_API_KEY
+        sync: false   # OpenRouter key (sk-or-...) or OpenAI key (sk-proj-...)
+      - key: BETTER_AUTH_SECRET
+        sync: false   # Must match the secret in your Next.js frontend
+      # --- Non-secret config ---
+      - key: BETTER_AUTH_URL
+        sync: false   # Set to your Vercel frontend URL: https://your-app.vercel.app
+      - key: BACKEND_BETTER_AUTH_URL
+        value: ""     # Not needed on Render (no in-cluster HTTP shortcut)
+      - key: CORS_ORIGINS
+        sync: false   # Set to your Vercel frontend URL: https://your-app.vercel.app
+      - key: OPENAI_BASE_URL
+        value: "https://openrouter.ai/api/v1"   # Remove if using OpenAI directly
+      - key: MCP_SERVER_URL
+        sync: false   # Set after MCP service deploys: https://hackathon-todo-mcp.onrender.com/mcp
+      - key: DAPR_ENABLED
+        value: "false"  # No Dapr sidecar on Render free tier
+      - key: DEBUG
+        value: "false"
+
+  # ─── MCP Server ───────────────────────────────────────────────────────────
+  - type: web
+    name: hackathon-todo-mcp
+    runtime: python
+    rootDir: backend
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn mcp_server.server:app --host 0.0.0.0 --port $PORT --workers 1
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.13.0
+      # --- Set these in the Render dashboard ---
+      - key: DATABASE_URL
+        sync: false   # Same Neon connection string
+      - key: BETTER_AUTH_URL
+        sync: false   # MCP validates tokens via Better Auth: https://your-app.vercel.app
+      - key: MCP_HOST
+        value: "0.0.0.0"
+      - key: DAPR_ENABLED
+        value: "false"

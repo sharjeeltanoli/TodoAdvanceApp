@@ -1,4 +1,5 @@
 import logging
+import os
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -6,10 +7,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import create_db_and_tables
-from app.routes import todos, chat, notifications, history, sse_proxy
-from app.events import handlers as event_handlers
+from app.routes import todos, chat, history
 
 logger = logging.getLogger(__name__)
+
+# When DAPR_ENABLED=false (e.g. Render free tier), skip all Dapr-dependent
+# routers (notifications, SSE proxy, event handlers, cron bindings).
+# The core CRUD, chat, and history routes remain fully functional.
+DAPR_ENABLED = os.getenv("DAPR_ENABLED", "true").lower() == "true"
 
 
 @asynccontextmanager
@@ -28,16 +33,23 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins_list,
     allow_credentials=True,
-    allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
+    allow_methods=["*"],
     allow_headers=["*"],
 )
 
+# Always-on routes — no Dapr dependency
 app.include_router(todos.router, prefix="/api")
 app.include_router(chat.router)
-app.include_router(event_handlers.router)
-app.include_router(notifications.router)
 app.include_router(history.router)
-app.include_router(sse_proxy.router)
+
+# Dapr-dependent routes — only registered when Dapr sidecar is available
+if DAPR_ENABLED:
+    from app.routes import notifications, sse_proxy
+    from app.events import handlers as event_handlers
+
+    app.include_router(event_handlers.router)
+    app.include_router(notifications.router)
+    app.include_router(sse_proxy.router)
 
 
 @app.get("/health")
@@ -45,16 +57,14 @@ async def health():
     return {"status": "ok"}
 
 
-@app.get("/dapr/subscribe")
-async def dapr_subscribe():
-    """Dapr programmatic subscription endpoint.
-
-    Returns the list of topic subscriptions for this service.
-    """
-    return [
-        {
-            "pubsubname": "pubsub",
-            "topic": "task-events",
-            "route": "/events/task",
-        },
-    ]
+if DAPR_ENABLED:
+    @app.get("/dapr/subscribe")
+    async def dapr_subscribe():
+        """Dapr programmatic subscription endpoint."""
+        return [
+            {
+                "pubsubname": "pubsub",
+                "topic": "task-events",
+                "route": "/events/task",
+            },
+        ]
