@@ -20,7 +20,7 @@ async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(bearer_scheme),
 ) -> str:
     """Validate Bearer token via Better Auth session endpoint."""
-    async with httpx.AsyncClient() as client:
+    async with httpx.AsyncClient(timeout=10.0) as client:
         response = await client.get(
             f"{_auth_base_url()}/api/auth/get-session",
             headers={

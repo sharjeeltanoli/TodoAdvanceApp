@@ -47,21 +47,26 @@ export async function createTask(formData: FormData) {
   const recurrence = recurrenceRaw ? JSON.parse(recurrenceRaw) : null;
   const reminderRaw = formData.get("reminder_minutes") as string;
 
-  const result = await api.post(
-    "/api/todos",
-    {
-      title: formData.get("title") as string,
-      description: (formData.get("description") as string) || null,
-      priority: (formData.get("priority") as string) || "medium",
-      tags,
-      due_date: (formData.get("due_date") as string) || null,
-      recurrence_pattern: recurrence,
-      reminder_minutes: reminderRaw ? parseInt(reminderRaw) : null,
-    },
-    session.session.token
-  );
-  revalidatePath("/dashboard");
-  return result;
+  try {
+    const result = await api.post(
+      "/api/todos",
+      {
+        title: formData.get("title") as string,
+        description: (formData.get("description") as string) || null,
+        priority: (formData.get("priority") as string) || "medium",
+        tags,
+        due_date: (formData.get("due_date") as string) || null,
+        recurrence_pattern: recurrence,
+        reminder_minutes: reminderRaw ? parseInt(reminderRaw) : null,
+      },
+      session.session.token
+    );
+    revalidatePath("/dashboard");
+    return result;
+  } catch (err) {
+    console.error("[createTask] failed:", err);
+    throw err;
+  }
 }
 
 export async function toggleComplete(taskId: string) {
