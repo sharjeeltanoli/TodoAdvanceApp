@@ -15,8 +15,14 @@ interface GetTasksParams {
 }
 
 export async function getTasks(params?: GetTasksParams) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) throw new Error("Unauthorized");
+  const session = await auth.api.getSession({ headers: await headers() }).catch((err) => {
+    console.error("[getTasks] auth.api.getSession threw:", err?.message ?? err);
+    return null;
+  });
+  if (!session) {
+    console.error("[getTasks] session null — DATABASE_URL set?", !!process.env.DATABASE_URL);
+    throw new Error("Unauthorized");
+  }
 
   const query = new URLSearchParams();
   if (params?.search) query.set("search", params.search);
@@ -38,8 +44,14 @@ export async function getAvailableTags() {
 }
 
 export async function createTask(formData: FormData) {
-  const session = await auth.api.getSession({ headers: await headers() });
-  if (!session) throw new Error("Unauthorized");
+  const session = await auth.api.getSession({ headers: await headers() }).catch((err) => {
+    console.error("[createTask] auth.api.getSession threw:", err?.message ?? err);
+    return null;
+  });
+  if (!session) {
+    console.error("[createTask] session null — DATABASE_URL set?", !!process.env.DATABASE_URL);
+    throw new Error("Unauthorized");
+  }
 
   const tagsRaw = formData.get("tags") as string;
   const tags = tagsRaw ? JSON.parse(tagsRaw) : [];

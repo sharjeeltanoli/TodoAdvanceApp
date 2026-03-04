@@ -93,24 +93,20 @@ export function TaskList({ tasks: initialTasks, authToken }: TaskListProps) {
 
   return (
     <div className="space-y-4">
-      {authToken && (
+      {authToken && sseStatus !== "disconnected" && (
         <div className="flex items-center gap-2 text-xs text-zinc-400">
           <span
             className={`inline-block h-2 w-2 rounded-full ${
               sseStatus === "connected"
                 ? "bg-green-500"
-                : sseStatus === "connecting" || sseStatus === "reconnecting"
-                  ? "bg-yellow-500 animate-pulse"
-                  : "bg-zinc-400"
+                : "bg-yellow-500 animate-pulse"
             }`}
           />
           {sseStatus === "connected"
             ? "Live"
             : sseStatus === "reconnecting"
               ? "Reconnecting..."
-              : sseStatus === "connecting"
-                ? "Connecting..."
-                : "Offline"}
+              : "Connecting..."}
         </div>
       )}
       <TaskForm onSuccess={handleTaskCreated} />
