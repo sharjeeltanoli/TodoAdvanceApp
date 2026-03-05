@@ -1,7 +1,7 @@
 import asyncio
 import logging
 import uuid
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
@@ -18,6 +18,15 @@ logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Tasks"])
 
+
+def _to_naive_utc(dt: datetime) -> datetime:
+    """Strip timezone info, converting to UTC first if needed."""
+    if dt is None:
+        return None
+    if dt.tzinfo is not None:
+        dt = dt.astimezone(timezone.utc).replace(tzinfo=None)
+    return dt
+
 PRIORITY_ORDER = {"high": 1, "medium": 2, "low": 3}
 
 
@@ -31,6 +40,10 @@ async def create_todo(
     # Convert RecurrencePattern to dict for JSON storage
     if dump.get("recurrence_pattern") is not None:
         dump["recurrence_pattern"] = data.recurrence_pattern.model_dump(mode="json")
+    # Strip timezone from datetime fields to match TIMESTAMP WITHOUT TIME ZONE columns
+    for dt_field in ("due_date", "snoozed_until"):
+        if dump.get(dt_field) is not None:
+            dump[dt_field] = _to_naive_utc(dump[dt_field])
     task = Task(**dump, user_id=user_id)
     db.add(task)
     await db.commit()
@@ -187,6 +200,10 @@ async def update_todo(
     if not task:
         raise HTTPException(status_code=404, detail="Task not found")
     update_data = data.model_dump(exclude_unset=True)
+    # Strip timezone from datetime fields to match TIMESTAMP WITHOUT TIME ZONE columns
+    for dt_field in ("due_date", "snoozed_until"):
+        if dt_field in update_data and update_data[dt_field] is not None:
+            update_data[dt_field] = _to_naive_utc(update_data[dt_field])
     # Track changes for event payload
     changed_fields = {}
     for key, value in update_data.items():
