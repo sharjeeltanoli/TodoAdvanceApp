@@ -1,13 +1,16 @@
 "use client";
 
-import { ChatKit, useChatKit } from "@openai/chatkit-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
 // NEXT_PUBLIC_BACKEND_URL must be set on Vercel to the Render backend URL.
-// Falls back to localhost for local dev. There is no ingress on Vercel+Render,
-// so relative URLs ("/chatkit") do NOT work in production.
+// Falls back to localhost for local dev.
 const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "http://localhost:8000";
+
+interface Message {
+  role: "user" | "assistant";
+  content: string;
+}
 
 export function ChatPanel() {
   const [token, setToken] = useState<string | null>(null);
@@ -51,63 +54,144 @@ export function ChatPanel() {
 }
 
 function ChatPanelInner({ token }: { token: string }) {
-  const [ready, setReady] = useState(false);
+  const [messages, setMessages] = useState<Message[]>([]);
+  const [input, setInput] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [conversationId, setConversationId] = useState<string | undefined>();
+  const bottomRef = useRef<HTMLDivElement>(null);
 
-  const chatkit = useChatKit({
-    api: {
-      url: `${BACKEND_URL}/chatkit`,
-      domainKey: "todo-app",
-      fetch: (input, init) => {
-        const headers = new Headers(init?.headers);
-        headers.set("Authorization", `Bearer ${token}`);
-        return fetch(input, { ...init, headers });
-      },
-    },
-    theme: "light",
-    history: {
-      enabled: true,
-      showDelete: true,
-    },
-    startScreen: {
-      greeting: "How can I help with your tasks?",
-      prompts: [
-        {
-          label: "Show my tasks",
-          prompt: "Show all my tasks",
-          icon: "check-circle",
+  useEffect(() => {
+    bottomRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [messages, loading]);
+
+  async function sendMessage() {
+    const text = input.trim();
+    if (!text || loading) return;
+
+    setInput("");
+    setMessages((prev) => [...prev, { role: "user", content: text }]);
+    setLoading(true);
+
+    try {
+      const res = await fetch(`${BACKEND_URL}/api/chat`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
         },
+        body: JSON.stringify({ message: text, conversation_id: conversationId }),
+      });
+
+      if (!res.ok) {
+        const detail = await res.text();
+        throw new Error(`${res.status}: ${detail}`);
+      }
+
+      const data = await res.json();
+      setConversationId(data.conversation_id);
+      setMessages((prev) => [
+        ...prev,
+        { role: "assistant", content: data.response },
+      ]);
+    } catch (err) {
+      console.error("[ChatPanel] send error:", err);
+      setMessages((prev) => [
+        ...prev,
         {
-          label: "Add a task",
-          prompt: "Add a new task: ",
-          icon: "plus",
+          role: "assistant",
+          content: "Sorry, I ran into an error. Please try again.",
         },
-        {
-          label: "Task summary",
-          prompt: "Give me a summary of my tasks",
-          icon: "chart",
-        },
-      ],
-    },
-    composer: {
-      placeholder: "Ask me to manage your tasks...",
-    },
-    onReady: () => {
-      console.log("[ChatKit] ready");
-      setReady(true);
-    },
-    onError: ({ error }) => {
-      console.error("[ChatKit] error:", error);
-    },
-  });
+      ]);
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  const STARTER_PROMPTS = [
+    "Show all my tasks",
+    "Add a new task: ",
+    "Give me a summary of my tasks",
+  ];
 
   return (
-    <div className="relative h-full w-full">
-      {!ready && (
-        <div className="absolute inset-0 z-10 flex items-center justify-center bg-white text-zinc-500">
-          Initializing chat...
+    <div className="flex h-full flex-col">
+      {/* Messages */}
+      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+        {messages.length === 0 && (
+          <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
+            <p className="text-lg font-medium text-zinc-700">
+              How can I help with your tasks?
+            </p>
+            <div className="flex flex-wrap gap-2 justify-center">
+              {STARTER_PROMPTS.map((p) => (
+                <button
+                  key={p}
+                  onClick={() => {
+                    setInput(p);
+                  }}
+                  className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 transition-colors"
+                >
+                  {p}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {messages.map((msg, i) => (
+          <div
+            key={i}
+            className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
+          >
+            <div
+              className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm whitespace-pre-wrap ${
+                msg.role === "user"
+                  ? "bg-blue-600 text-white rounded-br-sm"
+                  : "bg-zinc-100 text-zinc-900 rounded-bl-sm"
+              }`}
+            >
+              {msg.content}
+            </div>
+          </div>
+        ))}
+
+        {loading && (
+          <div className="flex justify-start">
+            <div className="bg-zinc-100 text-zinc-400 rounded-2xl rounded-bl-sm px-4 py-2 text-sm">
+              <span className="animate-pulse">Thinking…</span>
+            </div>
+          </div>
+        )}
+
+        <div ref={bottomRef} />
+      </div>
+
+      {/* Input */}
+      <div className="border-t border-zinc-200 p-4">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+              }
+            }}
+            placeholder="Ask me to manage your tasks…"
+            disabled={loading}
+            className="flex-1 rounded-xl border border-zinc-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+          />
+          <button
+            onClick={sendMessage}
+            disabled={loading || !input.trim()}
+            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+          >
+            Send
+          </button>
         </div>
-      )}
-      <ChatKit control={chatkit.control} className="block h-full w-full" />
+      </div>
     </div>
   );
 }

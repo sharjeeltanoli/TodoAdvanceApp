@@ -1,24 +1,35 @@
 """
-Chat routes — ChatKit endpoint and conversation management.
+Chat routes — ChatKit endpoint, simple chat, and conversation management.
 """
 
 from __future__ import annotations
 
 import json
+import logging
 import uuid
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import JSONResponse, StreamingResponse
 from fastapi.security import HTTPAuthorizationCredentials
+from pydantic import BaseModel
 from sqlmodel import select
 
 from app.chat.server import TodoChatKitServer
 from app.chat.store import DatabaseChatKitStore
+from app.config import settings
 from app.database import async_session
 from app.dependencies import bearer_scheme, get_current_user
 from app.models import Conversation
 
 router = APIRouter(tags=["Chat"])
+logger = logging.getLogger(__name__)
+
+_SIMPLE_CHAT_SYSTEM = """\
+You are a task management assistant. Help users manage their todo list through
+natural conversation. You can discuss adding, listing, completing, updating, and
+deleting tasks. Stay focused on task management. For off-topic questions, politely
+redirect the user to ask about their tasks instead.
+"""
 
 # Singleton instances — created once, shared across requests
 _store = DatabaseChatKitStore()
@@ -55,6 +66,49 @@ async def chatkit_handler(
         )
     else:
         return JSONResponse(content=json.loads(result.json), media_type="application/json")
+
+
+# ---------------------------------------------------------------------------
+# Simple chat endpoint — direct OpenAI call, no MCP required
+# ---------------------------------------------------------------------------
+
+
+class SimpleChatRequest(BaseModel):
+    message: str
+    conversation_id: str | None = None
+
+
+@router.post("/api/chat")
+async def simple_chat(
+    req: SimpleChatRequest,
+    user_id: str = Depends(get_current_user),
+):
+    """Simple chat endpoint — calls OpenAI directly without MCP tools."""
+    if not settings.OPENAI_API_KEY:
+        raise HTTPException(status_code=503, detail="Chat service not configured (missing OPENAI_API_KEY)")
+
+    try:
+        from openai import AsyncOpenAI
+
+        client = AsyncOpenAI(
+            api_key=settings.OPENAI_API_KEY,
+            base_url=settings.OPENAI_BASE_URL or None,
+        )
+        response = await client.chat.completions.create(
+            model="gpt-4o-mini",
+            messages=[
+                {"role": "system", "content": _SIMPLE_CHAT_SYSTEM},
+                {"role": "user", "content": req.message},
+            ],
+            max_tokens=1024,
+        )
+        return {
+            "response": response.choices[0].message.content,
+            "conversation_id": req.conversation_id or str(uuid.uuid4()),
+        }
+    except Exception as exc:
+        logger.exception("Simple chat error")
+        raise HTTPException(status_code=500, detail=f"Chat error: {exc}")
 
 
 # ---------------------------------------------------------------------------
