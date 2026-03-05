@@ -73,13 +73,19 @@ function ChatPanelInner({ token }: { token: string }) {
     setLoading(true);
 
     try {
+      // Send last 10 messages as history so the AI has multi-turn context
+      const history = messages.slice(-10).map((m) => ({
+        role: m.role,
+        content: m.content,
+      }));
+
       const res = await fetch(`${BACKEND_URL}/api/chat`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
           Authorization: `Bearer ${token}`,
         },
-        body: JSON.stringify({ message: text, conversation_id: conversationId }),
+        body: JSON.stringify({ message: text, conversation_id: conversationId, history }),
       });
 
       if (!res.ok) {
