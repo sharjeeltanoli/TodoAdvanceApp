@@ -28,7 +28,7 @@ services:
       - key: OPENAI_BASE_URL
         value: "https://openrouter.ai/api/v1"   # Remove if using OpenAI directly
       - key: OPENAI_MODEL
-        value: "meta-llama/llama-3.1-8b-instruct:free"  # Free OpenRouter model; use gpt-4o-mini for OpenAI
+        value: "gpt-4o-mini"  # Works with OpenRouter and OpenAI direct
       - key: MCP_SERVER_URL
         sync: false   # Set after MCP service deploys: https://hackathon-todo-mcp.onrender.com/mcp
       - key: DAPR_ENABLED

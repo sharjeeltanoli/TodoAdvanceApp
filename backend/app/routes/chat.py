@@ -87,28 +87,39 @@ async def simple_chat(
     if not settings.OPENAI_API_KEY:
         raise HTTPException(status_code=503, detail="Chat service not configured (missing OPENAI_API_KEY)")
 
-    try:
-        from openai import AsyncOpenAI
+    from openai import AsyncOpenAI
 
-        client = AsyncOpenAI(
-            api_key=settings.OPENAI_API_KEY,
-            base_url=settings.OPENAI_BASE_URL or None,
-        )
-        response = await client.chat.completions.create(
-            model=settings.OPENAI_MODEL,
-            messages=[
-                {"role": "system", "content": _SIMPLE_CHAT_SYSTEM},
-                {"role": "user", "content": req.message},
-            ],
-            max_tokens=1024,
-        )
-        return {
-            "response": response.choices[0].message.content,
-            "conversation_id": req.conversation_id or str(uuid.uuid4()),
-        }
-    except Exception as exc:
-        logger.exception("Simple chat error")
-        raise HTTPException(status_code=500, detail=f"Chat error: {exc}")
+    client = AsyncOpenAI(
+        api_key=settings.OPENAI_API_KEY,
+        base_url=settings.OPENAI_BASE_URL or None,
+    )
+    messages = [
+        {"role": "system", "content": _SIMPLE_CHAT_SYSTEM},
+        {"role": "user", "content": req.message},
+    ]
+
+    # Try configured model first, fall back to gpt-4o-mini if it fails
+    models_to_try = [settings.OPENAI_MODEL]
+    if settings.OPENAI_MODEL != "gpt-4o-mini":
+        models_to_try.append("gpt-4o-mini")
+
+    last_exc: Exception | None = None
+    for model in models_to_try:
+        try:
+            response = await client.chat.completions.create(
+                model=model,
+                messages=messages,
+                max_tokens=1024,
+            )
+            return {
+                "response": response.choices[0].message.content,
+                "conversation_id": req.conversation_id or str(uuid.uuid4()),
+            }
+        except Exception as exc:
+            logger.error("Chat model %s failed: %s", model, exc)
+            last_exc = exc
+
+    raise HTTPException(status_code=500, detail=f"Chat error: {last_exc}")
 
 
 # ---------------------------------------------------------------------------
