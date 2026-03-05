@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     DEBUG: bool = False
     OPENAI_API_KEY: str = ""
     OPENAI_BASE_URL: str = ""
+    OPENAI_MODEL: str = "gpt-4o-mini"
     MCP_SERVER_URL: str = "http://localhost:8001/mcp"
     MCP_SERVER_PORT: int = 8001
 

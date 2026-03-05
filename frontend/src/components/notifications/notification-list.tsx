@@ -18,7 +18,7 @@ interface NotificationListProps {
   onClose: () => void;
 }
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "";
+const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || "").replace(/\/$/, "");
 
 function formatRelativeTime(dateStr: string): string {
   const date = new Date(dateStr);

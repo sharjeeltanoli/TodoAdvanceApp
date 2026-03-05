@@ -7,7 +7,7 @@ interface NotificationBellProps {
   onClick?: () => void;
 }
 
-const BACKEND_URL = process.env.NEXT_PUBLIC_BACKEND_URL || "";
+const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || "").replace(/\/$/, "");
 const POLL_INTERVAL = 30000; // 30 seconds
 
 export function NotificationBell({ token, onClick }: NotificationBellProps) {

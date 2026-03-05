@@ -27,6 +27,8 @@ services:
         sync: false   # Set to your Vercel frontend URL: https://your-app.vercel.app
       - key: OPENAI_BASE_URL
         value: "https://openrouter.ai/api/v1"   # Remove if using OpenAI directly
+      - key: OPENAI_MODEL
+        value: "meta-llama/llama-3.1-8b-instruct:free"  # Free OpenRouter model; use gpt-4o-mini for OpenAI
       - key: MCP_SERVER_URL
         sync: false   # Set after MCP service deploys: https://hackathon-todo-mcp.onrender.com/mcp
       - key: DAPR_ENABLED

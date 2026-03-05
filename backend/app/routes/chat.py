@@ -95,7 +95,7 @@ async def simple_chat(
             base_url=settings.OPENAI_BASE_URL or None,
         )
         response = await client.chat.completions.create(
-            model="gpt-4o-mini",
+            model=settings.OPENAI_MODEL,
             messages=[
                 {"role": "system", "content": _SIMPLE_CHAT_SYSTEM},
                 {"role": "user", "content": req.message},

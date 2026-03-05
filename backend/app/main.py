@@ -7,13 +7,14 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.config import settings
 from app.database import create_db_and_tables
-from app.routes import todos, chat, history
+from app.routes import todos, chat, history, notifications
 
 logger = logging.getLogger(__name__)
 
-# When DAPR_ENABLED=false (e.g. Render free tier), skip all Dapr-dependent
-# routers (notifications, SSE proxy, event handlers, cron bindings).
-# The core CRUD, chat, and history routes remain fully functional.
+# When DAPR_ENABLED=false (e.g. Render free tier), skip Dapr-dependent
+# routers (SSE proxy, event handlers, cron bindings).
+# Notifications router is always registered: /unread-count is DB-only and
+# the other endpoints degrade gracefully to 503 when Dapr isn't running.
 DAPR_ENABLED = os.getenv("DAPR_ENABLED", "true").lower() == "true"
 
 
@@ -41,14 +42,14 @@ app.add_middleware(
 app.include_router(todos.router, prefix="/api")
 app.include_router(chat.router)
 app.include_router(history.router)
+app.include_router(notifications.router)  # /unread-count is DB-only; others degrade to 503
 
 # Dapr-dependent routes — only registered when Dapr sidecar is available
 if DAPR_ENABLED:
-    from app.routes import notifications, sse_proxy
+    from app.routes import sse_proxy
     from app.events import handlers as event_handlers
 
     app.include_router(event_handlers.router)
-    app.include_router(notifications.router)
     app.include_router(sse_proxy.router)
 
 
