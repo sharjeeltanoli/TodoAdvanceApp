@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { TagInput } from "@/components/ui/tag-input";
@@ -126,6 +126,10 @@ export function TaskForm({
     }
   }
 
+  const handleTagsChange = useCallback((newTags: string[]) => setTags(newTags), []);
+  const handlePendingTagChange = useCallback((v: string) => setPendingTag(v), []);
+  const handleDueDateChange = useCallback((v: string) => setDueDate(v), []);
+
   const priorityOptions = [
     { value: "high", label: "High", dot: "bg-red-500", active: "bg-red-500 text-white shadow-sm", inactive: "bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-700" },
     { value: "medium", label: "Med", dot: "bg-amber-500", active: "bg-amber-500 text-white shadow-sm", inactive: "bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-700" },
@@ -186,10 +190,10 @@ export function TaskForm({
       </div>
 
       {/* Tags */}
-      <TagInput value={tags} onChange={setTags} suggestions={tagSuggestions} onInputChange={setPendingTag} inputValue={pendingTag} />
+      <TagInput value={tags} onChange={handleTagsChange} suggestions={tagSuggestions} onInputChange={handlePendingTagChange} inputValue={pendingTag} />
 
       {/* Due date */}
-      <DatePicker value={dueDate} onChange={setDueDate} />
+      <DatePicker value={dueDate} onChange={handleDueDateChange} />
 
       {/* Reminder (only when due date is set) */}
       {dueDate && (

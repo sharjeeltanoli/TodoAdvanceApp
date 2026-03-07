@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { memo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { formatDistanceToNow, isPast, isToday } from "date-fns";
 import { Button } from "@/components/ui/button";
@@ -32,7 +32,7 @@ interface TaskItemProps {
   authToken?: string;
 }
 
-export function TaskItem({ task, authToken }: TaskItemProps) {
+export const TaskItem = memo(function TaskItem({ task, authToken }: TaskItemProps) {
   const router = useRouter();
   const [editing, setEditing] = useState(false);
   const [showDelete, setShowDelete] = useState(false);
@@ -223,4 +223,4 @@ export function TaskItem({ task, authToken }: TaskItemProps) {
       )}
     </>
   );
-}
+}, (prev, next) => prev.task.updated_at === next.task.updated_at && prev.authToken === next.authToken);

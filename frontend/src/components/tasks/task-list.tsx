@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo, useTransition } from "react";
 import { TaskItem, TaskData } from "@/components/tasks/task-item";
 import { EmptyState } from "@/components/tasks/empty-state";
 import { TaskForm } from "@/components/tasks/task-form";
@@ -25,6 +25,7 @@ export function TaskList({ tasks: initialTasks, authToken }: TaskListProps) {
   const [sortDir, setSortDir] = useState("desc");
   const [sseStatus, setSSEStatus] = useState<SSEStatus>("disconnected");
   const sseRef = useRef<SSEConnection | null>(null);
+  const [, startTransition] = useTransition();
 
   // Derive available tags from the current task list — always in sync, no extra API call
   const availableTags = useMemo(
@@ -78,13 +79,21 @@ export function TaskList({ tasks: initialTasks, authToken }: TaskListProps) {
   }, [fetchTasks, hasFilters, initialTasks]);
 
   function handleClearFilters() {
-    setSearch("");
-    setStatusFilter("");
-    setPriorityFilter("");
-    setTagFilter("");
-    setSortBy("created_at");
-    setSortDir("desc");
+    startTransition(() => {
+      setSearch("");
+      setStatusFilter("");
+      setPriorityFilter("");
+      setTagFilter("");
+      setSortBy("created_at");
+      setSortDir("desc");
+    });
   }
+
+  const handleStatusChange = useCallback((v: string) => startTransition(() => setStatusFilter(v)), []);
+  const handlePriorityChange = useCallback((v: string) => startTransition(() => setPriorityFilter(v)), []);
+  const handleTagChange = useCallback((v: string) => startTransition(() => setTagFilter(v)), []);
+  const handleSortByChange = useCallback((v: string) => startTransition(() => setSortBy(v)), []);
+  const handleSortDirChange = useCallback((v: string) => startTransition(() => setSortDir(v)), []);
 
   function handleTaskCreated() {
     fetchTasks();
@@ -123,16 +132,16 @@ export function TaskList({ tasks: initialTasks, authToken }: TaskListProps) {
             priority={priorityFilter}
             tag={tagFilter}
             availableTags={availableTags}
-            onStatusChange={setStatusFilter}
-            onPriorityChange={setPriorityFilter}
-            onTagChange={setTagFilter}
+            onStatusChange={handleStatusChange}
+            onPriorityChange={handlePriorityChange}
+            onTagChange={handleTagChange}
             onClear={handleClearFilters}
           />
           <SortSelect
             sortBy={sortBy}
             sortDir={sortDir}
-            onSortByChange={setSortBy}
-            onSortDirChange={setSortDir}
+            onSortByChange={handleSortByChange}
+            onSortDirChange={handleSortDirChange}
           />
         </div>
       </div>

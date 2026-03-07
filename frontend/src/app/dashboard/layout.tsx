@@ -18,6 +18,7 @@ export default function DashboardLayout({
   const isChat = pathname === "/dashboard/chat";
   const [token, setToken] = useState<string | undefined>();
   const [notifOpen, setNotifOpen] = useState(false);
+  const [notifRefresh, setNotifRefresh] = useState(0);
 
   useEffect(() => {
     authClient.getSession().then((res) => {
@@ -68,11 +69,13 @@ export default function DashboardLayout({
               <NotificationBell
                 token={token}
                 onClick={() => setNotifOpen(!notifOpen)}
+                refreshTrigger={notifRefresh}
               />
               <NotificationList
                 token={token}
                 isOpen={notifOpen}
                 onClose={() => setNotifOpen(false)}
+                onRead={() => setNotifRefresh((n) => n + 1)}
               />
             </div>
             <Button variant="ghost" onClick={handleLogout} className="text-slate-300 hover:bg-white/10 hover:text-white">

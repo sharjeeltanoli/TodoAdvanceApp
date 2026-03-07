@@ -1,5 +1,7 @@
 "use client";
 
+import { memo } from "react";
+
 interface FilterBarProps {
   status: string;
   priority: string;
@@ -11,7 +13,7 @@ interface FilterBarProps {
   onClear: () => void;
 }
 
-export function FilterBar({
+export const FilterBar = memo(function FilterBar({
   status,
   priority,
   tag,
@@ -61,4 +63,4 @@ export function FilterBar({
       )}
     </div>
   );
-}
+});

@@ -16,6 +16,7 @@ interface NotificationListProps {
   token?: string;
   isOpen: boolean;
   onClose: () => void;
+  onRead?: () => void;
 }
 
 const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || "").replace(/\/$/, "");
@@ -46,7 +47,7 @@ function typeColor(type: string): string {
   return "bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400";
 }
 
-export function NotificationList({ token, isOpen, onClose }: NotificationListProps) {
+export function NotificationList({ token, isOpen, onClose, onRead }: NotificationListProps) {
   const [notifications, setNotifications] = useState<Notification[]>([]);
   const [loading, setLoading] = useState(false);
 
@@ -82,6 +83,7 @@ export function NotificationList({ token, isOpen, onClose }: NotificationListPro
       setNotifications((prev) =>
         prev.map((n) => (n.id === id ? { ...n, read: true } : n))
       );
+      onRead?.();
     } catch {
       // Silently ignore
     }
@@ -95,6 +97,7 @@ export function NotificationList({ token, isOpen, onClose }: NotificationListPro
         headers: { Authorization: `Bearer ${token}` },
       });
       setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+      onRead?.();
     } catch {
       // Silently ignore
     }

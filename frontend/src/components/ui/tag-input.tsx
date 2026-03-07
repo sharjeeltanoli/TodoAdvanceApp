@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { memo, useState, useRef, useEffect } from "react";
 
 interface TagInputProps {
   value: string[];
@@ -10,7 +10,7 @@ interface TagInputProps {
   inputValue?: string; // when provided, parent controls the text field (enables external reset)
 }
 
-export function TagInput({ value, onChange, suggestions = [], onInputChange, inputValue }: TagInputProps) {
+export const TagInput = memo(function TagInput({ value, onChange, suggestions = [], onInputChange, inputValue }: TagInputProps) {
   const [input, setInput] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -109,4 +109,4 @@ export function TagInput({ value, onChange, suggestions = [], onInputChange, inp
       </div>
     </div>
   );
-}
+});

@@ -5,12 +5,13 @@ import { useState, useEffect, useCallback } from "react";
 interface NotificationBellProps {
   token?: string;
   onClick?: () => void;
+  refreshTrigger?: number;
 }
 
 const BACKEND_URL = (process.env.NEXT_PUBLIC_BACKEND_URL || "").replace(/\/$/, "");
 const POLL_INTERVAL = 30000; // 30 seconds
 
-export function NotificationBell({ token, onClick }: NotificationBellProps) {
+export function NotificationBell({ token, onClick, refreshTrigger }: NotificationBellProps) {
   const [unreadCount, setUnreadCount] = useState(0);
 
   const fetchUnreadCount = useCallback(async () => {
@@ -32,7 +33,7 @@ export function NotificationBell({ token, onClick }: NotificationBellProps) {
     fetchUnreadCount();
     const interval = setInterval(fetchUnreadCount, POLL_INTERVAL);
     return () => clearInterval(interval);
-  }, [fetchUnreadCount]);
+  }, [fetchUnreadCount, refreshTrigger]);
 
   return (
     <button

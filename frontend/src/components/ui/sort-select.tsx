@@ -1,3 +1,5 @@
+import { memo } from "react";
+
 interface SortSelectProps {
   sortBy: string;
   sortDir: string;
@@ -5,7 +7,7 @@ interface SortSelectProps {
   onSortDirChange: (v: string) => void;
 }
 
-export function SortSelect({
+export const SortSelect = memo(function SortSelect({
   sortBy,
   sortDir,
   onSortByChange,
@@ -32,4 +34,4 @@ export function SortSelect({
       </button>
     </div>
   );
-}
+});

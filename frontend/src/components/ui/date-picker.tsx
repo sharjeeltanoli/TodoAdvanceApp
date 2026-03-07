@@ -1,10 +1,12 @@
+import { memo } from "react";
+
 interface DatePickerProps {
   value: string;
   onChange: (value: string) => void;
   label?: string;
 }
 
-export function DatePicker({ value, onChange, label = "Due Date" }: DatePickerProps) {
+export const DatePicker = memo(function DatePicker({ value, onChange, label = "Due Date" }: DatePickerProps) {
   return (
     <div className="flex flex-col gap-1.5">
       <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
@@ -29,4 +31,4 @@ export function DatePicker({ value, onChange, label = "Due Date" }: DatePickerPr
       </div>
     </div>
   );
-}
+});
