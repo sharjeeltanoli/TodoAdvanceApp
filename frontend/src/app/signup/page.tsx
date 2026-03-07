@@ -48,9 +48,9 @@ const FEATURES = [
 
 export default function SignupPage() {
   return (
-    <div className="flex min-h-screen bg-zinc-50 dark:bg-zinc-950">
+    <div className="flex min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900">
       {/* Left — marketing panel */}
-      <div className="hidden md:flex md:w-1/2 flex-col justify-center px-12 lg:px-20 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900">
+      <div className="hidden md:flex md:w-1/2 flex-col justify-center px-12 lg:px-20">
         <div className="max-w-md">
           {/* Wordmark */}
           <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5">
@@ -91,29 +91,29 @@ export default function SignupPage() {
       <div className="flex w-full md:w-1/2 flex-col items-center justify-center px-6 py-12">
         {/* Mobile-only heading */}
         <div className="mb-8 text-center md:hidden">
-          <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
             Manage Tasks Smarter
           </h1>
-          <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="mt-1 text-sm text-slate-400">
             AI-powered task management at your fingertips
           </p>
         </div>
 
-        <div className="w-full max-w-sm space-y-6 rounded-xl border border-zinc-200 bg-white p-8 shadow-lg ring-1 ring-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:ring-zinc-800">
+        <div className="w-full max-w-sm space-y-6 rounded-xl border border-white/10 bg-white/[0.06] p-8 shadow-2xl backdrop-blur-sm">
           <div className="space-y-1 text-center">
-            <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+            <h2 className="text-2xl font-bold text-white">
               Create an account
             </h2>
-            <p className="text-sm text-zinc-500 dark:text-zinc-400">
+            <p className="text-sm text-slate-400">
               Start managing your tasks smarter today
             </p>
           </div>
           <SignupForm />
-          <p className="text-center text-sm text-zinc-500 dark:text-zinc-400">
+          <p className="text-center text-sm text-slate-400">
             Already have an account?{" "}
             <Link
               href="/login"
-              className="font-semibold text-indigo-600 underline-offset-4 hover:underline dark:text-indigo-400"
+              className="font-semibold text-indigo-400 underline-offset-4 hover:underline hover:text-indigo-300"
             >
               Sign in
             </Link>
