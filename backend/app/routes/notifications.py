@@ -19,8 +19,12 @@ router = APIRouter(prefix="/api/notifications", tags=["Notifications"])
 
 
 async def _sync_task_notifications(user_id: str, db: AsyncSession) -> None:
-    """Generate notification records for due-soon and overdue tasks (idempotent)."""
-    now = datetime.now(timezone.utc)
+    """Generate notification records for due-soon and overdue tasks (idempotent).
+
+    Uses naive UTC datetimes throughout — the DB columns are TIMESTAMP WITHOUT
+    TIME ZONE and asyncpg rejects timezone-aware datetimes against them.
+    """
+    now = datetime.utcnow()  # naive UTC — matches DB column type
     cutoff_24h = now + timedelta(hours=24)
 
     # Fetch incomplete tasks that are due or overdue
@@ -52,8 +56,9 @@ async def _sync_task_notifications(user_id: str, db: AsyncSession) -> None:
     new_notifications = []
     for task in tasks:
         due = task.due_date
-        if due.tzinfo is None:
-            due = due.replace(tzinfo=timezone.utc)
+        # Strip tzinfo if present — keep comparison naive
+        if due.tzinfo is not None:
+            due = due.replace(tzinfo=None)
 
         if due < now:
             ntype = "reminder_overdue"
