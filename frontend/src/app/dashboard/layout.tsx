@@ -81,7 +81,7 @@ export default function DashboardLayout({
           </div>
         </div>
       </nav>
-      <main className="mx-auto max-w-3xl px-4 py-8">
+      <main className={`mx-auto max-w-3xl px-4${isChat ? "" : " py-8"}`}>
         {children}
       </main>
     </div>
