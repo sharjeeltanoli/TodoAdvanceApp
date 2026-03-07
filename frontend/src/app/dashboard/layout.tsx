@@ -81,7 +81,7 @@ export default function DashboardLayout({
           </div>
         </div>
       </nav>
-      <main className={`mx-auto w-full max-w-3xl flex-1 overflow-hidden px-4${isChat ? "" : " overflow-y-auto py-8"}`}>
+      <main className={`scrollbar-hide mx-auto w-full max-w-3xl flex-1 overflow-hidden px-4${isChat ? "" : " overflow-y-auto py-8"}`}>
         {children}
       </main>
     </div>
