@@ -24,15 +24,15 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <p className="text-sm text-zinc-500 dark:text-zinc-400">
+      <p className="text-sm text-slate-500">
         Signed in as{" "}
-        <span className="font-medium text-zinc-900 dark:text-zinc-100">
+        <span className="font-medium text-slate-800">
           {session.user.email}
         </span>
       </p>
       <div className="mt-6">
         {fetchError && (
-          <div className="mb-4 rounded-md bg-amber-50 p-4 text-sm text-amber-800 dark:bg-amber-900/20 dark:text-amber-300">
+          <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-4 text-sm text-amber-800 shadow-sm">
             Could not load tasks. The backend may be unavailable. Your new tasks
             will still be saved when the connection is restored.
           </div>

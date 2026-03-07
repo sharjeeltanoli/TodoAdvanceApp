@@ -91,27 +91,31 @@ export function TaskList({ tasks: initialTasks, authToken }: TaskListProps) {
   }
 
   return (
-    <div className="space-y-4">
-      {authToken && sseStatus !== "disconnected" && (
-        <div className="flex items-center gap-2 text-xs text-zinc-400">
-          <span
-            className={`inline-block h-2 w-2 rounded-full ${
-              sseStatus === "connected"
-                ? "bg-green-500"
-                : "bg-yellow-500 animate-pulse"
-            }`}
-          />
-          {sseStatus === "connected"
-            ? "Live"
-            : sseStatus === "reconnecting"
-              ? "Reconnecting..."
-              : "Connecting..."}
+    <div className="space-y-5">
+      {/* Add task card */}
+      <div className="rounded-2xl border border-indigo-100 bg-white p-5 shadow-sm">
+        <div className="mb-4 flex items-center justify-between">
+          <h2 className="text-sm font-semibold uppercase tracking-wider text-indigo-600">
+            Add New Task
+          </h2>
+          {authToken && sseStatus !== "disconnected" && (
+            <div className="flex items-center gap-1.5 text-xs text-slate-400">
+              <span
+                className={`inline-block h-2 w-2 rounded-full ${
+                  sseStatus === "connected"
+                    ? "bg-emerald-500"
+                    : "bg-amber-400 animate-pulse"
+                }`}
+              />
+              {sseStatus === "connected" ? "Live" : sseStatus === "reconnecting" ? "Reconnecting…" : "Connecting…"}
+            </div>
+          )}
         </div>
-      )}
-      <TaskForm onSuccess={handleTaskCreated} />
+        <TaskForm onSuccess={handleTaskCreated} />
+      </div>
 
       {/* Search + Filter + Sort toolbar */}
-      <div className="space-y-2">
+      <div className="rounded-xl border border-indigo-100 bg-white/70 p-3 shadow-sm backdrop-blur-sm space-y-2">
         <SearchInput value={search} onChange={setSearch} />
         <div className="flex flex-wrap items-center justify-between gap-2">
           <FilterBar

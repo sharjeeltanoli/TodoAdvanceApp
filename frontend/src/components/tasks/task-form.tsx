@@ -127,9 +127,9 @@ export function TaskForm({
   }
 
   const priorityOptions = [
-    { value: "high", label: "High", color: "bg-red-500" },
-    { value: "medium", label: "Med", color: "bg-yellow-500" },
-    { value: "low", label: "Low", color: "bg-green-500" },
+    { value: "high", label: "High", dot: "bg-red-500", active: "bg-red-500 text-white shadow-sm", inactive: "bg-slate-100 text-slate-600 hover:bg-red-50 hover:text-red-700" },
+    { value: "medium", label: "Med", dot: "bg-amber-500", active: "bg-amber-500 text-white shadow-sm", inactive: "bg-slate-100 text-slate-600 hover:bg-amber-50 hover:text-amber-700" },
+    { value: "low", label: "Low", dot: "bg-emerald-500", active: "bg-emerald-500 text-white shadow-sm", inactive: "bg-slate-100 text-slate-600 hover:bg-emerald-50 hover:text-emerald-700" },
   ];
 
   return (
@@ -147,7 +147,7 @@ export function TaskForm({
       <div className="flex flex-col gap-1.5">
         <label
           htmlFor={`description-${taskId || "new"}`}
-          className="text-sm font-medium text-zinc-700 dark:text-zinc-300"
+          className="text-sm font-medium text-slate-700"
         >
           Description
         </label>
@@ -158,29 +158,27 @@ export function TaskForm({
           onChange={(e) => setDescription(e.target.value)}
           maxLength={2000}
           rows={2}
-          className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 placeholder:text-zinc-400 focus:border-zinc-500 focus:outline-none focus:ring-1 focus:ring-zinc-500 dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100 dark:placeholder:text-zinc-500"
+          className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300/50"
           style={{ resize: "vertical" }}
         />
       </div>
 
       {/* Priority selector */}
       <div className="flex flex-col gap-1.5">
-        <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+        <label className="text-sm font-medium text-slate-700">
           Priority
         </label>
-        <div className="flex gap-1">
+        <div className="flex gap-1.5">
           {priorityOptions.map((opt) => (
             <button
               key={opt.value}
               type="button"
               onClick={() => setPriority(opt.value)}
-              className={`flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
-                priority === opt.value
-                  ? "bg-zinc-900 text-white dark:bg-zinc-100 dark:text-zinc-900"
-                  : "bg-zinc-100 text-zinc-600 hover:bg-zinc-200 dark:bg-zinc-800 dark:text-zinc-400 dark:hover:bg-zinc-700"
+              className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
+                priority === opt.value ? opt.active : opt.inactive
               }`}
             >
-              <span className={`h-2 w-2 rounded-full ${opt.color}`} />
+              <span className={`h-2 w-2 rounded-full ${priority === opt.value ? "bg-white/80" : opt.dot}`} />
               {opt.label}
             </button>
           ))}
@@ -196,13 +194,13 @@ export function TaskForm({
       {/* Reminder (only when due date is set) */}
       {dueDate && (
         <div className="flex flex-col gap-1.5">
-          <label className="text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="text-sm font-medium text-slate-700">
             Reminder
           </label>
           <select
             value={reminderMinutes}
             onChange={(e) => setReminderMinutes(e.target.value)}
-            className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+            className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300/50"
           >
             <option value="">No reminder</option>
             <option value="15">15 min before</option>
@@ -215,12 +213,12 @@ export function TaskForm({
       {/* Recurrence (only when due date is set) */}
       {dueDate && (
         <div className="flex flex-col gap-1.5">
-          <label className="flex items-center gap-2 text-sm font-medium text-zinc-700 dark:text-zinc-300">
+          <label className="flex items-center gap-2 text-sm font-medium text-slate-700">
             <input
               type="checkbox"
               checked={recurrenceEnabled}
               onChange={(e) => setRecurrenceEnabled(e.target.checked)}
-              className="h-4 w-4 rounded border-zinc-300"
+              className="h-4 w-4 rounded border-slate-300 accent-indigo-600"
             />
             Recurring task
           </label>
@@ -228,7 +226,7 @@ export function TaskForm({
             <select
               value={recurrenceFrequency}
               onChange={(e) => setRecurrenceFrequency(e.target.value)}
-              className="rounded-md border border-zinc-300 bg-white px-3 py-2 text-sm text-zinc-900 focus:border-zinc-500 focus:outline-none dark:border-zinc-600 dark:bg-zinc-800 dark:text-zinc-100"
+              className="rounded-lg border border-slate-200 bg-white px-3 py-2 text-sm text-slate-900 focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300/50"
             >
               <option value="daily">Daily</option>
               <option value="weekly">Weekly</option>
@@ -238,16 +236,16 @@ export function TaskForm({
         </div>
       )}
 
-      <div className="flex gap-2">
-        <Button type="submit" disabled={loading}>
+      <div className="flex gap-2 pt-1">
+        <button
+          type="submit"
+          disabled={loading}
+          className="rounded-lg bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2 text-sm font-semibold text-white transition-all hover:from-indigo-500 hover:to-purple-500 hover:shadow-md disabled:cursor-not-allowed disabled:opacity-50"
+        >
           {loading
-            ? mode === "edit"
-              ? "Saving..."
-              : "Adding..."
-            : mode === "edit"
-              ? "Save"
-              : "Add Task"}
-        </Button>
+            ? mode === "edit" ? "Saving…" : "Adding…"
+            : mode === "edit" ? "Save Changes" : "Add Task"}
+        </button>
         {mode === "edit" && onCancel && (
           <Button type="button" variant="ghost" onClick={onCancel}>
             Cancel
