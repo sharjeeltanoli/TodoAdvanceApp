@@ -24,9 +24,9 @@ export default async function DashboardPage() {
 
   return (
     <div>
-      <p className="text-sm text-slate-500">
+      <p className="text-sm text-slate-400">
         Signed in as{" "}
-        <span className="font-medium text-slate-800">
+        <span className="font-medium text-white">
           {session.user.email}
         </span>
       </p>
