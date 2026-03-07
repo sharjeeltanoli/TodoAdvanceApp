@@ -1,18 +1,26 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 
 interface TagInputProps {
   value: string[];
   onChange: (tags: string[]) => void;
   suggestions?: string[];
   onInputChange?: (input: string) => void;
+  inputValue?: string; // when provided, parent controls the text field (enables external reset)
 }
 
-export function TagInput({ value, onChange, suggestions = [], onInputChange }: TagInputProps) {
+export function TagInput({ value, onChange, suggestions = [], onInputChange, inputValue }: TagInputProps) {
   const [input, setInput] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  // Sync internal input state when parent drives a reset (e.g. inputValue → "")
+  useEffect(() => {
+    if (inputValue !== undefined) {
+      setInput(inputValue);
+    }
+  }, [inputValue]);
 
   const filtered = suggestions.filter(
     (s) => s.includes(input.toLowerCase()) && !value.includes(s)

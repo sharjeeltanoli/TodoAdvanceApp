@@ -1,13 +1,13 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { TaskItem, TaskData } from "@/components/tasks/task-item";
 import { EmptyState } from "@/components/tasks/empty-state";
 import { TaskForm } from "@/components/tasks/task-form";
 import { SearchInput } from "@/components/ui/search-input";
 import { FilterBar } from "@/components/ui/filter-bar";
 import { SortSelect } from "@/components/ui/sort-select";
-import { getTasks, getAvailableTags } from "@/app/dashboard/actions";
+import { getTasks } from "@/app/dashboard/actions";
 import { createTaskSSEConnection, SSEStatus, type SSEConnection } from "@/lib/sse";
 
 interface TaskListProps {
@@ -23,13 +23,14 @@ export function TaskList({ tasks: initialTasks, authToken }: TaskListProps) {
   const [tagFilter, setTagFilter] = useState("");
   const [sortBy, setSortBy] = useState("created_at");
   const [sortDir, setSortDir] = useState("desc");
-  const [availableTags, setAvailableTags] = useState<string[]>([]);
   const [sseStatus, setSSEStatus] = useState<SSEStatus>("disconnected");
   const sseRef = useRef<SSEConnection | null>(null);
 
-  useEffect(() => {
-    getAvailableTags().then(setAvailableTags).catch(() => {});
-  }, []);
+  // Derive available tags from the current task list — always in sync, no extra API call
+  const availableTags = useMemo(
+    () => Array.from(new Set(tasks.flatMap((t) => t.tags ?? []))).sort(),
+    [tasks]
+  );
 
   // SSE connection for real-time task updates
   useEffect(() => {
@@ -40,9 +41,8 @@ export function TaskList({ tasks: initialTasks, authToken }: TaskListProps) {
 
     connection.onStatusChange(setSSEStatus);
     connection.onEvent((event) => {
-      // Refetch tasks when any change event arrives
+      // Refetch tasks when any change event arrives (availableTags derived from tasks)
       fetchTasks();
-      getAvailableTags().then(setAvailableTags).catch(() => {});
     });
 
     return () => {
@@ -88,7 +88,6 @@ export function TaskList({ tasks: initialTasks, authToken }: TaskListProps) {
 
   function handleTaskCreated() {
     fetchTasks();
-    getAvailableTags().then(setAvailableTags).catch(() => {});
   }
 
   return (

@@ -188,7 +188,7 @@ export function TaskForm({
       </div>
 
       {/* Tags */}
-      <TagInput value={tags} onChange={setTags} suggestions={tagSuggestions} onInputChange={setPendingTag} />
+      <TagInput value={tags} onChange={setTags} suggestions={tagSuggestions} onInputChange={setPendingTag} inputValue={pendingTag} />
 
       {/* Due date */}
       <DatePicker value={dueDate} onChange={setDueDate} />
