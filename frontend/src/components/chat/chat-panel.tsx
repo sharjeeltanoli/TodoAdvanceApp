@@ -122,7 +122,7 @@ function ChatPanelInner({ token }: { token: string }) {
   return (
     <div className="flex h-full flex-col">
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto p-4 space-y-3">
+      <div className="scrollbar-hide flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 && (
           <div className="flex flex-col items-center justify-center h-full gap-5 text-center">
             <div>
@@ -176,7 +176,7 @@ function ChatPanelInner({ token }: { token: string }) {
       </div>
 
       {/* Input */}
-      <div className="border-t border-indigo-100 bg-white/60 p-4 backdrop-blur-sm">
+      <div className="border-t border-white/20 bg-white/30 p-4 backdrop-blur-sm">
         <div className="flex gap-2">
           <input
             type="text"
