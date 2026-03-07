@@ -2,36 +2,84 @@ import Link from "next/link";
 import { LoginForm } from "@/components/auth/login-form";
 
 const FEATURES = [
-  { icon: "✨", label: "AI Chat Assistant", detail: "Manage tasks in plain English" },
-  { icon: "🎯", label: "Smart Priorities", detail: "High, medium, and low task tiers" },
-  { icon: "🏷️", label: "Tags & Filters", detail: "Organise tasks exactly your way" },
-  { icon: "📅", label: "Due Dates & Reminders", detail: "Never miss a deadline" },
-  { icon: "🔄", label: "Real-time Sync", detail: "Updates across all devices instantly" },
-  { icon: "🔍", label: "Advanced Search", detail: "Find any task in seconds" },
+  {
+    icon: "✨",
+    label: "AI Chat Assistant",
+    detail: "Manage tasks in plain English",
+    iconBg: "bg-blue-500/20",
+    labelColor: "text-blue-300",
+  },
+  {
+    icon: "🎯",
+    label: "Smart Priorities",
+    detail: "High, medium, and low task tiers",
+    iconBg: "bg-orange-500/20",
+    labelColor: "text-orange-300",
+  },
+  {
+    icon: "🏷️",
+    label: "Tags & Filters",
+    detail: "Organise tasks exactly your way",
+    iconBg: "bg-green-500/20",
+    labelColor: "text-green-300",
+  },
+  {
+    icon: "📅",
+    label: "Due Dates & Reminders",
+    detail: "Never miss a deadline",
+    iconBg: "bg-purple-500/20",
+    labelColor: "text-purple-300",
+  },
+  {
+    icon: "🔄",
+    label: "Real-time Sync",
+    detail: "Updates across all devices instantly",
+    iconBg: "bg-cyan-500/20",
+    labelColor: "text-cyan-300",
+  },
+  {
+    icon: "🔍",
+    label: "Advanced Search",
+    detail: "Find any task in seconds",
+    iconBg: "bg-indigo-500/20",
+    labelColor: "text-indigo-300",
+  },
 ];
 
 export default function LoginPage() {
   return (
     <div className="flex min-h-screen bg-zinc-50 dark:bg-zinc-950">
       {/* Left — marketing panel */}
-      <div className="hidden md:flex md:w-1/2 flex-col justify-center px-12 lg:px-20 bg-zinc-900 dark:bg-zinc-950">
+      <div className="hidden md:flex md:w-1/2 flex-col justify-center px-12 lg:px-20 bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900">
         <div className="max-w-md">
-          <div className="mb-6 text-sm font-semibold tracking-widest text-zinc-400 uppercase">
-            Todo App
+          {/* Wordmark */}
+          <div className="mb-8 inline-flex items-center gap-2 rounded-full border border-indigo-500/30 bg-indigo-500/10 px-4 py-1.5">
+            <span className="text-sm font-semibold text-indigo-300 tracking-wide">Todo App</span>
           </div>
-          <h1 className="text-4xl font-bold text-white leading-tight mb-4">
-            Manage Tasks Smarter, Not Harder
+
+          {/* Heading with gradient */}
+          <h1 className="text-4xl font-bold leading-tight mb-4">
+            <span className="bg-gradient-to-r from-blue-400 via-indigo-400 to-purple-400 bg-clip-text text-transparent">
+              Manage Tasks Smarter,
+            </span>
+            <br />
+            <span className="text-white">Not Harder</span>
           </h1>
-          <p className="text-zinc-400 text-lg mb-10 leading-relaxed">
-            A powerful task manager with AI-powered chat, smart priorities, tags, reminders, and real-time sync.
+
+          <p className="text-slate-400 text-base mb-10 leading-relaxed">
+            AI-powered chat, smart priorities, tags, reminders, and real-time sync — all in one place.
           </p>
-          <ul className="space-y-4">
-            {FEATURES.map(({ icon, label, detail }) => (
-              <li key={label} className="flex items-start gap-3">
-                <span className="text-xl leading-none mt-0.5">{icon}</span>
+
+          {/* Feature list */}
+          <ul className="space-y-3">
+            {FEATURES.map(({ icon, label, detail, iconBg, labelColor }) => (
+              <li key={label} className="flex items-center gap-3 rounded-xl p-2 transition-colors hover:bg-white/5">
+                <div className={`flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-lg text-lg ${iconBg}`}>
+                  {icon}
+                </div>
                 <div>
-                  <span className="text-white font-medium text-sm">{label}</span>
-                  <span className="text-zinc-500 text-sm"> — {detail}</span>
+                  <span className={`text-sm font-semibold ${labelColor}`}>{label}</span>
+                  <span className="text-slate-500 text-sm"> — {detail}</span>
                 </div>
               </li>
             ))}
@@ -43,7 +91,7 @@ export default function LoginPage() {
       <div className="flex w-full md:w-1/2 flex-col items-center justify-center px-6 py-12">
         {/* Mobile-only heading */}
         <div className="mb-8 text-center md:hidden">
-          <h1 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
+          <h1 className="text-2xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
             Manage Tasks Smarter
           </h1>
           <p className="mt-1 text-sm text-zinc-500 dark:text-zinc-400">
@@ -51,8 +99,8 @@ export default function LoginPage() {
           </p>
         </div>
 
-        <div className="w-full max-w-sm space-y-6 rounded-lg border border-zinc-200 bg-white p-8 shadow-sm dark:border-zinc-800 dark:bg-zinc-900">
-          <div className="space-y-2 text-center">
+        <div className="w-full max-w-sm space-y-6 rounded-xl border border-zinc-200 bg-white p-8 shadow-lg ring-1 ring-zinc-100 dark:border-zinc-800 dark:bg-zinc-900 dark:ring-zinc-800">
+          <div className="space-y-1 text-center">
             <h2 className="text-2xl font-bold text-zinc-900 dark:text-zinc-100">
               Welcome back
             </h2>
@@ -65,7 +113,7 @@ export default function LoginPage() {
             Don&apos;t have an account?{" "}
             <Link
               href="/signup"
-              className="font-medium text-zinc-900 underline-offset-4 hover:underline dark:text-zinc-100"
+              className="font-semibold text-indigo-600 underline-offset-4 hover:underline dark:text-indigo-400"
             >
               Sign up
             </Link>
