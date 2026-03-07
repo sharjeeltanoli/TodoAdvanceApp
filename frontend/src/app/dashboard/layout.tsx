@@ -33,7 +33,7 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900">
+    <div className="flex h-screen flex-col bg-gradient-to-br from-slate-900 via-indigo-950 to-slate-900">
       <nav className="sticky top-0 z-20 border-b border-white/10 bg-slate-900/80 shadow-sm backdrop-blur-md">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-4">
@@ -81,7 +81,7 @@ export default function DashboardLayout({
           </div>
         </div>
       </nav>
-      <main className={`mx-auto max-w-3xl px-4${isChat ? "" : " py-8"}`}>
+      <main className={`mx-auto w-full max-w-3xl flex-1 overflow-hidden px-4${isChat ? "" : " overflow-y-auto py-8"}`}>
         {children}
       </main>
     </div>
