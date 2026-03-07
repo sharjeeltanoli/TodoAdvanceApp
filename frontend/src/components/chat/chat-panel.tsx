@@ -124,18 +124,21 @@ function ChatPanelInner({ token }: { token: string }) {
       {/* Messages */}
       <div className="flex-1 overflow-y-auto p-4 space-y-3">
         {messages.length === 0 && (
-          <div className="flex flex-col items-center justify-center h-full gap-4 text-center">
-            <p className="text-lg font-medium text-zinc-700">
-              How can I help with your tasks?
-            </p>
+          <div className="flex flex-col items-center justify-center h-full gap-5 text-center">
+            <div>
+              <p className="text-xl font-bold bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-transparent">
+                How can I help with your tasks?
+              </p>
+              <p className="mt-1 text-sm text-slate-400">
+                Ask me to create, list, complete, or delete tasks
+              </p>
+            </div>
             <div className="flex flex-wrap gap-2 justify-center">
               {STARTER_PROMPTS.map((p) => (
                 <button
                   key={p}
-                  onClick={() => {
-                    setInput(p);
-                  }}
-                  className="rounded-full border border-zinc-300 px-4 py-1.5 text-sm text-zinc-600 hover:bg-zinc-100 transition-colors"
+                  onClick={() => setInput(p)}
+                  className="rounded-full border border-indigo-200 bg-indigo-50 px-4 py-1.5 text-sm font-medium text-indigo-700 transition-all hover:bg-indigo-100 hover:shadow-sm"
                 >
                   {p}
                 </button>
@@ -152,8 +155,8 @@ function ChatPanelInner({ token }: { token: string }) {
             <div
               className={`max-w-[80%] rounded-2xl px-4 py-2 text-sm whitespace-pre-wrap ${
                 msg.role === "user"
-                  ? "bg-blue-600 text-white rounded-br-sm"
-                  : "bg-zinc-100 text-zinc-900 rounded-bl-sm"
+                  ? "bg-gradient-to-r from-indigo-600 to-purple-600 text-white rounded-br-sm shadow-sm"
+                  : "bg-white border border-slate-100 text-slate-800 rounded-bl-sm shadow-sm"
               }`}
             >
               {msg.content}
@@ -163,7 +166,7 @@ function ChatPanelInner({ token }: { token: string }) {
 
         {loading && (
           <div className="flex justify-start">
-            <div className="bg-zinc-100 text-zinc-400 rounded-2xl rounded-bl-sm px-4 py-2 text-sm">
+            <div className="bg-white border border-slate-100 text-slate-400 rounded-2xl rounded-bl-sm px-4 py-2 text-sm shadow-sm">
               <span className="animate-pulse">Thinking…</span>
             </div>
           </div>
@@ -173,7 +176,7 @@ function ChatPanelInner({ token }: { token: string }) {
       </div>
 
       {/* Input */}
-      <div className="border-t border-zinc-200 p-4">
+      <div className="border-t border-indigo-100 bg-white/60 p-4 backdrop-blur-sm">
         <div className="flex gap-2">
           <input
             type="text"
@@ -187,12 +190,12 @@ function ChatPanelInner({ token }: { token: string }) {
             }}
             placeholder="Ask me to manage your tasks…"
             disabled={loading}
-            className="flex-1 rounded-xl border border-zinc-300 px-4 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            className="flex-1 rounded-xl border border-indigo-200 px-4 py-2 text-sm focus:border-indigo-400 focus:outline-none focus:ring-2 focus:ring-indigo-300/50 disabled:opacity-50 bg-white"
           />
           <button
             onClick={sendMessage}
             disabled={loading || !input.trim()}
-            className="rounded-xl bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+            className="rounded-xl bg-gradient-to-r from-indigo-600 to-purple-600 px-5 py-2 text-sm font-semibold text-white transition-all hover:from-indigo-500 hover:to-purple-500 hover:shadow-md disabled:opacity-40 disabled:cursor-not-allowed"
           >
             Send
           </button>

@@ -83,7 +83,7 @@ export function TaskItem({ task, authToken }: TaskItemProps) {
 
   if (editing) {
     return (
-      <div className="rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div className="rounded-xl border border-indigo-100 bg-white p-4 shadow-sm">
         <TaskForm
           mode="edit"
           taskId={task.id}
@@ -104,44 +104,63 @@ export function TaskItem({ task, authToken }: TaskItemProps) {
     );
   }
 
+  const priorityBorder = {
+    high: "border-l-red-500",
+    medium: "border-l-amber-500",
+    low: "border-l-emerald-500",
+  }[task.priority];
+
+  const tagColors = [
+    "bg-indigo-100 text-indigo-700",
+    "bg-violet-100 text-violet-700",
+    "bg-cyan-100 text-cyan-700",
+    "bg-teal-100 text-teal-700",
+    "bg-rose-100 text-rose-700",
+    "bg-orange-100 text-orange-700",
+  ];
+
   return (
     <>
-      <div className="flex items-start gap-3 rounded-lg border border-zinc-200 bg-white p-4 dark:border-zinc-800 dark:bg-zinc-900">
+      <div
+        className={`flex items-start gap-3 rounded-xl border-l-4 bg-white p-4 shadow-sm transition-shadow hover:shadow-md ${priorityBorder} ${
+          task.completed ? "opacity-60" : ""
+        }`}
+      >
         <input
           type="checkbox"
           checked={task.completed}
           onChange={handleToggle}
           disabled={toggling}
-          className="mt-1 h-4 w-4 rounded border-zinc-300 text-zinc-900 focus:ring-zinc-500 dark:border-zinc-600"
+          className="mt-1 h-4 w-4 cursor-pointer rounded border-slate-300 accent-indigo-600 focus:ring-indigo-500"
         />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 flex-wrap">
             <p
-              className={`font-medium ${
+              className={`font-semibold ${
                 task.completed
-                  ? "text-zinc-400 line-through dark:text-zinc-500"
-                  : "text-zinc-900 dark:text-zinc-100"
+                  ? "text-slate-400 line-through"
+                  : "text-slate-800"
               }`}
             >
               {task.title}
             </p>
             <PriorityBadge priority={task.priority} />
             {task.recurrence_pattern && (
-              <span className="inline-flex items-center text-xs text-zinc-500 dark:text-zinc-400">
-                Repeats {task.recurrence_pattern.frequency}
+              <span className="inline-flex items-center rounded-full bg-purple-100 px-2 py-0.5 text-xs font-medium text-purple-700">
+                ↻ {task.recurrence_pattern.frequency}
               </span>
             )}
           </div>
 
           {/* Tags */}
           {task.tags.length > 0 && (
-            <div className="mt-1 flex flex-wrap gap-1">
-              {task.tags.map((tag) => (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {task.tags.map((tag, i) => (
                 <span
                   key={tag}
-                  className="rounded bg-zinc-100 px-1.5 py-0.5 text-xs text-zinc-600 dark:bg-zinc-800 dark:text-zinc-400"
+                  className={`rounded-full px-2 py-0.5 text-xs font-medium ${tagColors[i % tagColors.length]}`}
                 >
-                  {tag}
+                  #{tag}
                 </span>
               ))}
             </div>
@@ -152,9 +171,7 @@ export function TaskItem({ task, authToken }: TaskItemProps) {
             <div className="mt-1">
               <p
                 className={`text-sm whitespace-pre-wrap ${
-                  task.completed
-                    ? "text-zinc-400 line-through dark:text-zinc-600"
-                    : "text-zinc-500 dark:text-zinc-400"
+                  task.completed ? "text-slate-400 line-through" : "text-slate-500"
                 }`}
               >
                 {descriptionLong && !expanded
@@ -165,7 +182,7 @@ export function TaskItem({ task, authToken }: TaskItemProps) {
                 <button
                   type="button"
                   onClick={() => setExpanded(!expanded)}
-                  className="text-xs text-zinc-500 hover:text-zinc-700 dark:text-zinc-400 dark:hover:text-zinc-200"
+                  className="text-xs text-indigo-500 hover:text-indigo-700"
                 >
                   {expanded ? "Show less" : "Show more"}
                 </button>

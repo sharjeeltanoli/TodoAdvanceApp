@@ -33,30 +33,30 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
-      <nav className="border-b border-zinc-200 bg-white dark:border-zinc-800 dark:bg-zinc-900">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-indigo-50/40 to-purple-50/20">
+      <nav className="sticky top-0 z-20 border-b border-indigo-100/80 bg-white/80 shadow-sm backdrop-blur-md">
         <div className="mx-auto flex max-w-5xl items-center justify-between px-4 py-3">
           <div className="flex items-center gap-4">
-            <h1 className="text-lg font-semibold text-zinc-900 dark:text-zinc-100">
+            <h1 className="bg-gradient-to-r from-indigo-600 to-purple-600 bg-clip-text text-lg font-bold text-transparent">
               Todo App
             </h1>
             <div className="flex gap-1">
               <Link
                 href="/dashboard"
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
                   !isChat
-                    ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
-                    : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                    ? "bg-indigo-100 text-indigo-900 shadow-sm"
+                    : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
                 }`}
               >
                 Tasks
               </Link>
               <Link
                 href="/dashboard/chat"
-                className={`rounded-md px-3 py-1.5 text-sm font-medium transition-colors ${
+                className={`rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${
                   isChat
-                    ? "bg-zinc-100 text-zinc-900 dark:bg-zinc-800 dark:text-zinc-100"
-                    : "text-zinc-500 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-zinc-100"
+                    ? "bg-indigo-100 text-indigo-900 shadow-sm"
+                    : "text-slate-500 hover:bg-slate-100 hover:text-slate-800"
                 }`}
               >
                 Chat
