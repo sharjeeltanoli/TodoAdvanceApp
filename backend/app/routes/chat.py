@@ -43,6 +43,14 @@ CRITICAL RULES — follow these exactly:
 5. When the user wants to UPDATE a task → call list_tasks() first if you don't have the task ID, then call update_task().
 6. NEVER describe what you "would" do. Always call the appropriate tool and report the result.
 7. After every tool call, summarise what was done in a friendly one-line message.
+
+DATE AND TAG EXTRACTION:
+- Always extract dates from natural language and convert to YYYY-MM-DD format.
+  Examples: "tomorrow" → next day, "6-mar-2026" → "2026-03-06", "next friday" → the upcoming Friday.
+  Today's date context: use the current date when resolving relative dates.
+- Extract tags from phrases like "tagged fitness", "tag: work", "with tag shopping", "#urgent", or "label health".
+  Pass tags as an array of lowercase strings, e.g. ["fitness", "work"].
+- Always include due_date and tags in create_task and update_task calls when mentioned by the user.
 """
 
 # ---------------------------------------------------------------------------
@@ -87,6 +95,15 @@ _CHAT_TOOLS = [
                         "enum": ["high", "medium", "low"],
                         "description": "Task priority. Defaults to medium.",
                     },
+                    "due_date": {
+                        "type": "string",
+                        "description": "Due date in YYYY-MM-DD format. Extract from natural language (e.g. 'tomorrow', '6-mar-2026').",
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "List of lowercase tag strings (e.g. ['fitness', 'work']). Extract from phrases like 'tagged fitness' or 'with tag work'.",
+                    },
                 },
                 "required": ["title"],
             },
@@ -110,7 +127,7 @@ _CHAT_TOOLS = [
         "type": "function",
         "function": {
             "name": "update_task",
-            "description": "Update a task's title, description, or priority.",
+            "description": "Update a task's title, description, priority, due date, or tags.",
             "parameters": {
                 "type": "object",
                 "properties": {
@@ -121,6 +138,15 @@ _CHAT_TOOLS = [
                         "type": "string",
                         "enum": ["high", "medium", "low"],
                         "description": "New priority.",
+                    },
+                    "due_date": {
+                        "type": "string",
+                        "description": "New due date in YYYY-MM-DD format.",
+                    },
+                    "tags": {
+                        "type": "array",
+                        "items": {"type": "string"},
+                        "description": "New list of lowercase tag strings.",
                     },
                 },
                 "required": ["task_id"],
@@ -182,16 +208,32 @@ async def _execute_tool(name: str, args: dict, user_id: str, db: AsyncSession) -
             title = args.get("title", "").strip()
             if not title:
                 return "Error: task title cannot be empty."
+            due_date = None
+            due_date_str = args.get("due_date")
+            if due_date_str:
+                try:
+                    due_date = datetime.strptime(due_date_str, "%Y-%m-%d")
+                except ValueError:
+                    pass  # ignore unparseable dates
+            tags = args.get("tags") or []
+            tags = [str(t).lower().strip() for t in tags if str(t).strip()][:10]
             task = Task(
                 title=title,
                 description=args.get("description"),
                 priority=args.get("priority", "medium"),
+                due_date=due_date,
+                tags=tags,
                 user_id=user_id,
             )
             db.add(task)
             await db.commit()
             await db.refresh(task)
-            return f"Created task '{task.title}' with id:{task.id} (priority:{task.priority})."
+            parts = [f"Created task '{task.title}' with id:{task.id} (priority:{task.priority})"]
+            if task.due_date:
+                parts.append(f"due:{task.due_date.date()}")
+            if task.tags:
+                parts.append(f"tags:{task.tags}")
+            return ". ".join(parts) + "."
 
         elif name == "complete_task":
             task_id = uuid.UUID(args["task_id"])
@@ -221,6 +263,18 @@ async def _execute_tool(name: str, args: dict, user_id: str, db: AsyncSession) -
                 task.description = args["description"]
             if "priority" in args:
                 task.priority = args["priority"]
+            if "due_date" in args:
+                due_date_str = args["due_date"]
+                if due_date_str:
+                    try:
+                        task.due_date = datetime.strptime(due_date_str, "%Y-%m-%d")
+                    except ValueError:
+                        pass
+                else:
+                    task.due_date = None
+            if "tags" in args:
+                raw_tags = args["tags"] or []
+                task.tags = [str(t).lower().strip() for t in raw_tags if str(t).strip()][:10]
             task.updated_at = datetime.utcnow()
             await db.commit()
             return f"Updated task '{task.title}'."

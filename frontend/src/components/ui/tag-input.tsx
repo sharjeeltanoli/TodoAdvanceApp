@@ -6,9 +6,10 @@ interface TagInputProps {
   value: string[];
   onChange: (tags: string[]) => void;
   suggestions?: string[];
+  onInputChange?: (input: string) => void;
 }
 
-export function TagInput({ value, onChange, suggestions = [] }: TagInputProps) {
+export function TagInput({ value, onChange, suggestions = [], onInputChange }: TagInputProps) {
   const [input, setInput] = useState("");
   const [showSuggestions, setShowSuggestions] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -23,6 +24,7 @@ export function TagInput({ value, onChange, suggestions = [] }: TagInputProps) {
       onChange([...value, normalized]);
     }
     setInput("");
+    onInputChange?.("");
     setShowSuggestions(false);
   }
 
@@ -68,6 +70,7 @@ export function TagInput({ value, onChange, suggestions = [] }: TagInputProps) {
             value={input}
             onChange={(e) => {
               setInput(e.target.value);
+              onInputChange?.(e.target.value);
               setShowSuggestions(true);
             }}
             onKeyDown={handleKeyDown}

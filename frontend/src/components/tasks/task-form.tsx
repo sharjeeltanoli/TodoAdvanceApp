@@ -48,6 +48,7 @@ export function TaskForm({
   const [reminderMinutes, setReminderMinutes] = useState<string>(
     initialReminderMinutes ? String(initialReminderMinutes) : ""
   );
+  const [pendingTag, setPendingTag] = useState("");
   const [tagSuggestions, setTagSuggestions] = useState<string[]>([]);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -68,6 +69,15 @@ export function TaskForm({
       return;
     }
 
+    // Commit any tag still in the input field (user typed but didn't press Enter)
+    let finalTags = [...tags];
+    if (pendingTag.trim()) {
+      const normalized = pendingTag.toLowerCase().trim();
+      if (!finalTags.includes(normalized) && finalTags.length < 10) {
+        finalTags.push(normalized);
+      }
+    }
+
     setLoading(true);
     try {
       const dueDateValue = dueDate
@@ -83,7 +93,7 @@ export function TaskForm({
           title: trimmedTitle,
           description: description.trim() || undefined,
           priority,
-          tags,
+          tags: finalTags,
           due_date: dueDateValue,
           recurrence_pattern: recurrencePattern,
           reminder_minutes: reminderValue,
@@ -93,7 +103,7 @@ export function TaskForm({
         formData.set("title", trimmedTitle);
         if (description.trim()) formData.set("description", description.trim());
         formData.set("priority", priority);
-        formData.set("tags", JSON.stringify(tags));
+        formData.set("tags", JSON.stringify(finalTags));
         if (dueDateValue) formData.set("due_date", dueDateValue);
         if (recurrencePattern)
           formData.set("recurrence_pattern", JSON.stringify(recurrencePattern));
@@ -103,6 +113,7 @@ export function TaskForm({
         setDescription("");
         setPriority("medium");
         setTags([]);
+        setPendingTag("");
         setDueDate("");
         setRecurrenceEnabled(false);
         setReminderMinutes("");
@@ -177,7 +188,7 @@ export function TaskForm({
       </div>
 
       {/* Tags */}
-      <TagInput value={tags} onChange={setTags} suggestions={tagSuggestions} />
+      <TagInput value={tags} onChange={setTags} suggestions={tagSuggestions} onInputChange={setPendingTag} />
 
       {/* Due date */}
       <DatePicker value={dueDate} onChange={setDueDate} />
