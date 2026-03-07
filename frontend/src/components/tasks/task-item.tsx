@@ -83,7 +83,7 @@ export function TaskItem({ task, authToken }: TaskItemProps) {
 
   if (editing) {
     return (
-      <div className="rounded-xl border border-indigo-100 bg-white p-4 shadow-sm">
+      <div className="rounded-xl border border-indigo-100 bg-white/70 p-4 shadow-sm backdrop-blur-sm">
         <TaskForm
           mode="edit"
           taskId={task.id}
@@ -122,7 +122,7 @@ export function TaskItem({ task, authToken }: TaskItemProps) {
   return (
     <>
       <div
-        className={`flex items-start gap-3 rounded-xl border-l-4 bg-white p-4 shadow-sm transition-shadow hover:shadow-md ${priorityBorder} ${
+        className={`flex items-start gap-3 rounded-xl border-l-4 bg-white/70 p-4 shadow-sm backdrop-blur-sm transition-shadow hover:shadow-md ${priorityBorder} ${
           task.completed ? "opacity-60" : ""
         }`}
       >
