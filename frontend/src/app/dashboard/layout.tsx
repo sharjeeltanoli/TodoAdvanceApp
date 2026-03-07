@@ -15,6 +15,7 @@ export default function DashboardLayout({
 }) {
   const router = useRouter();
   const pathname = usePathname();
+  const isChat = pathname === "/dashboard/chat";
   const [token, setToken] = useState<string | undefined>();
   const [notifOpen, setNotifOpen] = useState(false);
 
@@ -30,8 +31,6 @@ export default function DashboardLayout({
     router.push("/login");
     router.refresh();
   }
-
-  const isChat = pathname === "/dashboard/chat";
 
   return (
     <div className="min-h-screen bg-zinc-50 dark:bg-zinc-950">
@@ -82,7 +81,7 @@ export default function DashboardLayout({
           </div>
         </div>
       </nav>
-      <main className={isChat ? "" : "mx-auto max-w-3xl px-4 py-8"}>
+      <main className="mx-auto max-w-3xl px-4 py-8">
         {children}
       </main>
     </div>
