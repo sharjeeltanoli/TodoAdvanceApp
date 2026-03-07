@@ -9,6 +9,14 @@
 
 ---
 
+## Live Demo
+
+**Production:** https://todo-advance-app.vercel.app/
+
+Deployed on **Vercel** (frontend) and **Render** (backend) with **Neon** serverless PostgreSQL.
+
+---
+
 ## Overview
 
 This project is a reference implementation of a production-quality task management platform, built incrementally across five feature phases using **Spec-Driven Development (SDD)**. Each phase introduces new capabilities while maintaining backward compatibility and architectural integrity.
